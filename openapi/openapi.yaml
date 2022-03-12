@@ -1409,7 +1409,6 @@
       'required':
       - 'enabled'
       - 'id'
-      - 'last_updated'
       - 'name'
       - 'rules_count'
       - 'url'
@@ -1447,6 +1446,10 @@
           'type': 'array'
           'items':
             '$ref': '#/components/schemas/Filter'
+        'whitelist_filters':
+          'type': 'array'
+          'items':
+            '$ref': '#/components/schemas/Filter'
         'user_rules':
           'type': 'array'
           'items':
@@ -1464,14 +1467,7 @@
       'description': 'Filtering URL settings'
       'properties':
         'data':
-          'properties':
-            'enabled':
-              'type': 'boolean'
-            'name':
-              'type': 'string'
-            'url':
-              'type': 'string'
-          'type': 'object'
+          '$ref': '#/components/schemas/Filter'
         'url':
           'type': 'string'
         'whitelist':
@@ -1873,6 +1869,8 @@
           'description': 'Previously added URL containing filtering rules'
           'type': 'string'
           'example': 'https://filters.adtidy.org/windows/filters/15.txt'
+        'whitelist':
+          'type': 'boolean'
     'QueryLogItem':
       'type': 'object'
       'description': 'Query log item'
