@@ -307,7 +307,7 @@ func (web *Web) tlsServerLoop() {
 		printHTTPAddresses(aghhttp.SchemeHTTPS)
 
 		if web.conf.serveHTTP3 {
-			go web.mustStartHTTP3(addr)
+			go web.mustStartHTTP3(addr, cipher)
 		}
 
 		log.Debug("web: starting https server")
@@ -319,7 +319,7 @@ func (web *Web) tlsServerLoop() {
 	}
 }
 
-func (web *Web) mustStartHTTP3(address string) {
+func (web *Web) mustStartHTTP3(address string, ciphers []uint16) {
 	defer log.OnPanic("web: http3")
 
 	web.httpsServer.server3 = &http3.Server{
@@ -329,7 +329,7 @@ func (web *Web) mustStartHTTP3(address string) {
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{web.httpsServer.cert},
 			RootCAs:      Context.tlsRoots,
-			CipherSuites: aghtls.SaferCipherSuites(),
+			CipherSuites: ciphers,
 			MinVersion:   tls.VersionTLS12,
 		},
 		Handler: withMiddlewares(Context.mux, limitRequestBody),
