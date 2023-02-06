@@ -47,13 +47,14 @@ type jsonDNSConfig struct {
 }
 
 func (s *Server) getDNSConfig() (c *jsonDNSConfig) {
+	protectionEnabled := s.UpdatedProtectionStatus()
+
 	s.serverLock.RLock()
 	defer s.serverLock.RUnlock()
 
 	upstreams := stringutil.CloneSliceOrEmpty(s.conf.UpstreamDNS)
 	upstreamFile := s.conf.UpstreamDNSFileName
 	bootstraps := stringutil.CloneSliceOrEmpty(s.conf.BootstrapDNS)
-	protectionEnabled := s.conf.ProtectionEnabled
 	blockingMode := s.conf.BlockingMode
 	blockingIPv4 := s.conf.BlockingIPv4
 	blockingIPv6 := s.conf.BlockingIPv6

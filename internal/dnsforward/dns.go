@@ -183,7 +183,7 @@ func (s *Server) processInitial(dctx *dnsContext) (rc resultCode) {
 	dctx.clientID = string(s.clientIDCache.Get(key[:]))
 
 	// Get the client-specific filtering settings.
-	dctx.protectionEnabled = s.updatedProtectionStatus()
+	dctx.protectionEnabled = s.UpdatedProtectionStatus()
 	dctx.setts = s.getClientRequestFilteringSettings(dctx)
 
 	return resultCodeSuccess

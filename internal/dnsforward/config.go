@@ -578,9 +578,9 @@ func (s *Server) onGetCertificate(ch *tls.ClientHelloInfo) (*tls.Certificate, er
 	return &s.conf.cert, nil
 }
 
-// updatedProtectionStatus updates protection state, if the protection was
+// UpdatedProtectionStatus updates protection state, if the protection was
 // disabled temporarily.  Returns the updated state of protection.
-func (s *Server) updatedProtectionStatus() (enabled bool) {
+func (s *Server) UpdatedProtectionStatus() (enabled bool) {
 	changed := false
 	defer func() {
 		if changed {

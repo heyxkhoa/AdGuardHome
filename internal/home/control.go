@@ -122,6 +122,14 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isProtectionEnabled := false
+	var c *dnsforward.FilteringConfig
+	if Context.dnsServer != nil {
+		c = &dnsforward.FilteringConfig{}
+		Context.dnsServer.WriteDiskConfig(c)
+		isProtectionEnabled = Context.dnsServer.UpdatedProtectionStatus()
+	}
+
 	var resp statusResponse
 	func() {
 		config.RLock()
@@ -141,15 +149,9 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 			Language:                config.Language,
 			IsRunning:               isRunning(),
 			ProtectionDisabledUntil: disabledUntil,
+			IsProtectionEnabled:     isProtectionEnabled,
 		}
 	}()
-
-	var c *dnsforward.FilteringConfig
-	if Context.dnsServer != nil {
-		c = &dnsforward.FilteringConfig{}
-		Context.dnsServer.WriteDiskConfig(c)
-		resp.IsProtectionEnabled = c.ProtectionEnabled
-	}
 
 	// IsDHCPAvailable field is now false by default for Windows.
 	if runtime.GOOS != "windows" {
