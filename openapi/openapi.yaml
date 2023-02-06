@@ -1233,6 +1233,7 @@
       - 'dns_port'
       - 'http_port'
       - 'protection_enabled'
+      - 'protection_disabled_until'
       - 'running'
       - 'version'
       - 'language'
@@ -1256,6 +1257,9 @@
           'maximum': 65535
         'protection_enabled':
           'type': 'boolean'
+        'protection_disabled_until':
+          'type': 'integer'
+          'format': 'int64'
         'dhcp_available':
           'type': 'boolean'
         'running':

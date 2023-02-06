@@ -103,6 +103,8 @@ type statusResponse struct {
 	DNSPort             int      `json:"dns_port"`
 	HTTPPort            int      `json:"http_port"`
 	IsProtectionEnabled bool     `json:"protection_enabled"`
+	// ProtectionDisabledDuration is a pause duration in milliseconds.
+	ProtectionDisabledDuration int64 `json:"protection_disabled_duration"`
 	// TODO(e.burkov): Inspect if front-end doesn't requires this field as
 	// openapi.yaml declares.
 	IsDHCPAvailable bool `json:"dhcp_available"`
@@ -124,13 +126,19 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		config.RLock()
 		defer config.RUnlock()
 
+		var pauseDuration int64
+		if until := config.DNS.ProtectionDisabledUntil; until != nil {
+			pauseDuration = time.Until(*until).Milliseconds()
+		}
+
 		resp = statusResponse{
-			Version:   version.Version(),
-			DNSAddrs:  dnsAddrs,
-			DNSPort:   config.DNS.Port,
-			HTTPPort:  config.BindPort,
-			Language:  config.Language,
-			IsRunning: isRunning(),
+			Version:                    version.Version(),
+			DNSAddrs:                   dnsAddrs,
+			DNSPort:                    config.DNS.Port,
+			HTTPPort:                   config.BindPort,
+			Language:                   config.Language,
+			IsRunning:                  isRunning(),
+			ProtectionDisabledDuration: pauseDuration,
 		}
 	}()
 
