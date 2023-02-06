@@ -596,8 +596,12 @@ func (s *Server) UpdatedProtectionStatus() (enabled bool) {
 	defer s.serverLock.Unlock()
 
 	disabledUntil := s.conf.ProtectionDisabledUntil
-	if disabledUntil == nil || time.Now().Before(*disabledUntil) {
+	if disabledUntil == nil {
 		return s.conf.ProtectionEnabled
+	}
+
+	if time.Now().Before(*disabledUntil) {
+		return false
 	}
 
 	s.conf.ProtectionEnabled = true
