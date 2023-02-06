@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -229,7 +230,7 @@ type ServerConfig struct {
 	LocalPTRResolvers []string
 
 	// DNS64Prefixes is a slice of NAT64 prefixes to be used for DNS64.
-	DNS64Prefixes []string
+	DNS64Prefixes []netip.Prefix
 
 	// ResolveClients signals if the RDNS should resolve clients' addresses.
 	ResolveClients bool
@@ -275,6 +276,8 @@ func (s *Server) createProxyConfig() (conf proxy.Config, err error) {
 		RequestHandler:         s.handleDNSRequest,
 		EnableEDNSClientSubnet: srvConf.EnableEDNSClientSubnet,
 		MaxGoroutines:          int(srvConf.MaxGoroutines),
+		UseDNS64:               srvConf.UseDNS64,
+		DNS64Prefs:             srvConf.DNS64Prefixes,
 	}
 
 	if srvConf.CacheSize != 0 {
