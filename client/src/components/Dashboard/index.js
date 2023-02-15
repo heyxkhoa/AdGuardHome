@@ -29,23 +29,26 @@ const Dashboard = ({
 }) => {
     const [countdownForProtection, setCountdownForProtection] = useState(null);
 
+    const handleCountdown = (interval) => {
+        const targetDate = new Date(protectionDisabledTime).getTime();
+        const nowDate = Date.now();
+        const resultDate = targetDate - nowDate;
+
+        if (resultDate < 0 && interval) {
+            toggleProtection(protectionEnabled);
+            clearInterval(interval);
+            setCountdownForProtection(null);
+            return;
+        }
+        setCountdownForProtection(resultDate);
+    };
+
     useEffect(() => {
         let interval = null;
 
         if (protectionDisabledTime) {
-            interval = setInterval(() => {
-                const targetDate = new Date(protectionDisabledTime).getTime();
-                const nowDate = Date.now();
-                const resultDate = targetDate - nowDate;
-
-                if (resultDate < 0) {
-                    toggleProtection(protectionEnabled);
-                    clearInterval(interval);
-                    setCountdownForProtection(null);
-                    return;
-                }
-                setCountdownForProtection(resultDate);
-            }, 1000);
+            handleCountdown();
+            interval = setInterval(() => handleCountdown(interval), 1000);
         }
 
         return () => {
