@@ -521,3 +521,12 @@ export const MOBILE_CONFIG_LINKS = {
     DOT: 'apple/dot.mobileconfig',
     DOH: 'apple/doh.mobileconfig',
 };
+
+// Timings for disable protection in milliseconds
+export const DISABLE_PROTECTION_TIMINGS = {
+    HALF_MINUTE: 30000,
+    MINUTE: 60000,
+    TEN_MINUTES: 600000,
+    HOUR: 3600000,
+    TOMORROW: 86400000,
+};

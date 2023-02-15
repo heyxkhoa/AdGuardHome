@@ -5047,9 +5047,9 @@ tbody.collapse.show {
 }
 
 .alert-primary {
-    color: #24426c;
-    background-color: #dae5f5;
-    border-color: #cbdbf2;
+    color: var(--alert-message-color);
+    background-color: var(--alert-message-bg);
+    border-color: var(--alert-message-border);
 }
 
 .alert-primary hr {
@@ -10214,6 +10214,18 @@ body.fixed-header .page {
     font-size: 1.5rem;
     font-weight: 400;
     line-height: 2.5rem;
+}
+
+.page-title__protection {
+    display: flex;
+    align-items: stretch;
+    margin: 0 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+    .page-title__protection {
+        margin: 0.5rem 0;
+    }
 }
 
 .page-title-icon {
