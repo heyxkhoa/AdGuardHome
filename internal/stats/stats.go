@@ -436,10 +436,8 @@ func (s *StatsCtx) periodicFlush() {
 	log.Debug("periodic flushing finished")
 }
 
+// s.lock is expected to be locked.
 func (s *StatsCtx) setLimit(limitDays int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if limitDays != 0 {
 		s.enabled = true
 		s.limitHours = uint32(24 * limitDays)

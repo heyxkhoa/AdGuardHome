@@ -1,8 +1,13 @@
 package aghnet
 
 import (
+	"fmt"
 	"net"
 	"strconv"
+	"strings"
+
+	"github.com/AdguardTeam/golibs/errors"
+	"github.com/AdguardTeam/golibs/stringutil"
 )
 
 // The maximum lengths of generated hostnames for different IP versions.
@@ -58,4 +63,28 @@ func GenerateHostname(ip net.IP) (hostname string) {
 	}
 
 	return generateIPv6Hostname(ip)
+}
+
+// NewDomainNameSet returns nil and error, if list has duplicate or empty host
+// name.  Otherwise returns a set, which contains lowercase host names without
+// dot at the end, and nil error.
+func NewDomainNameSet(list []string) (set *stringutil.Set, err error) {
+	set = stringutil.NewSet()
+
+	for _, v := range list {
+		host := strings.ToLower(strings.TrimSuffix(v, "."))
+		// TODO(a.garipov): Think about ignoring empty (".") names in
+		// the future.
+		if host == "" {
+			return nil, errors.Error("host name is empty")
+		}
+
+		if set.Has(host) {
+			return nil, fmt.Errorf("duplicate host name %q", host)
+		}
+
+		set.Add(host)
+	}
+
+	return set, nil
 }

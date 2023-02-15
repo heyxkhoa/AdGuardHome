@@ -250,6 +250,9 @@ func (l *queryLog) Add(params *AddParams) {
 
 // ShouldLog returns true if request for the host should be logged.
 func (l *queryLog) ShouldLog(host string, _, _ uint16) bool {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
 	return !l.isIgnored(host)
 }
 
