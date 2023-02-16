@@ -101,9 +101,16 @@ func (l *queryLog) handleQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
+	ivl := l.conf.RotationIvl
+
+	ok := checkInterval(ivl)
+	if !ok {
+		ivl = timeutil.Day * 90
+	}
+
 	_ = aghhttp.WriteJSONResponse(w, r, configJSON{
 		Enabled:           aghalg.BoolToNullBool(l.conf.Enabled),
-		Interval:          l.conf.RotationIvl.Hours() / 24,
+		Interval:          ivl.Hours() / 24,
 		AnonymizeClientIP: aghalg.BoolToNullBool(l.conf.AnonymizeClientIP),
 	})
 }
@@ -116,9 +123,8 @@ func (l *queryLog) handleQueryLogInfoV2(w http.ResponseWriter, r *http.Request) 
 
 	ignored := l.conf.Ignored.Values()
 	_ = aghhttp.WriteJSONResponse(w, r, configJSONv2{
-		Enabled: aghalg.BoolToNullBool(l.conf.Enabled),
-		// 1 hour = 3,600,000 ms
-		Interval:          l.conf.RotationIvl.Hours() * 3_600_000,
+		Enabled:           aghalg.BoolToNullBool(l.conf.Enabled),
+		Interval:          float64(l.conf.RotationIvl.Milliseconds()),
 		AnonymizeClientIP: aghalg.BoolToNullBool(l.conf.AnonymizeClientIP),
 		Ignored:           ignored,
 	})
@@ -192,8 +198,6 @@ func (l *queryLog) handleQueryLogConfig(w http.ResponseWriter, r *http.Request) 
 // handleQueryLogConfigV2 handles the PUT /control/querylog/config/update
 // queries.
 func (l *queryLog) handleQueryLogConfigV2(w http.ResponseWriter, r *http.Request) {
-	// Set NaN as initial value to be able to know if it changed later by
-	// comparing it to NaN.
 	newConf := &configJSONv2{}
 
 	err := json.NewDecoder(r.Body).Decode(newConf)
@@ -205,7 +209,7 @@ func (l *queryLog) handleQueryLogConfigV2(w http.ResponseWriter, r *http.Request
 
 	ivl := time.Duration(float64(time.Millisecond) * newConf.Interval)
 
-	if ivl < time.Hour || ivl > timeutil.Day*366 || !checkInterval(ivl) {
+	if ivl < time.Hour || ivl > timeutil.Day*365 {
 		aghhttp.Error(r, w, http.StatusBadRequest, "unsupported interval")
 
 		return
@@ -240,9 +244,9 @@ func (l *queryLog) handleQueryLogConfigV2(w http.ResponseWriter, r *http.Request
 			aghhttp.Error(r, w, http.StatusBadRequest, "ignored: %s", serr)
 
 			return
-		} else {
-			conf.Ignored = set
 		}
+
+		conf.Ignored = set
 	}
 
 	l.conf = &conf

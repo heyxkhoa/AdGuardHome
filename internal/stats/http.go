@@ -47,7 +47,7 @@ func (s *StatsCtx) handleStats(w http.ResponseWriter, r *http.Request) {
 	defer s.lock.Unlock()
 
 	start := time.Now()
-	resp, ok := s.getData(s.limitHours)
+	resp, ok := s.getData(uint32(s.limitHours.Hours()))
 	log.Debug("stats: prepared data in %v", time.Since(start))
 
 	if !ok {
@@ -84,7 +84,15 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	resp := configResp{IntervalDays: s.limitHours / 24}
+	days := uint32(s.limitHours.Hours() / 24)
+
+	ok := checkInterval(days)
+	if !ok || (s.enabled && days == 0) {
+		t := timeutil.Day * 90
+		days = uint32(t.Hours() / 24)
+	}
+
+	resp := configResp{IntervalDays: days}
 	if !s.enabled {
 		resp.IntervalDays = 0
 	}
@@ -97,29 +105,29 @@ func (s *StatsCtx) handleStatsInfoV2(w http.ResponseWriter, r *http.Request) {
 	defer s.lock.Unlock()
 
 	resp := configRespV2{
-		Enabled: aghalg.BoolToNullBool(s.enabled),
-		// 1 hour = 3,600,600 ms
-		Interval: float64(s.limitHours) * 3_600_000,
+		Enabled:  aghalg.BoolToNullBool(s.enabled),
+		Interval: float64(s.limitHours.Milliseconds()),
 		Ignored:  s.ignored.Values(),
 	}
-	_ = aghhttp.WriteJSONResponse(w, r, resp)
+	err := aghhttp.WriteJSONResponse(w, r, resp)
+	if err != nil {
+		log.Debug("stats: write response: %s", err)
+	}
 }
 
-// handleStatsConfig handles requests to the POST /v2/control/stats_config
+// handleStatsConfig handles requests to the POST /control/stats_config
 // endpoint.
 func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	reqData := configResp{}
 	err := json.NewDecoder(r.Body).Decode(&reqData)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusBadRequest, "json decode: %s", err)
-		s.lock.Unlock()
 
 		return
 	}
 
 	if !checkInterval(reqData.IntervalDays) {
 		aghhttp.Error(r, w, http.StatusBadRequest, "Unsupported interval")
-		s.lock.Unlock()
 
 		return
 	}
@@ -130,11 +138,9 @@ func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	defer s.lock.Unlock()
 
 	s.setLimit(int(reqData.IntervalDays))
-
-	s.configModified()
 }
 
-// handleStatsConfigV2 handles requests to the POST /v2/control/stats_config
+// handleStatsConfigV2 handles requests to the POST /control/stats_config
 // endpoint.
 func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	reqData := configRespV2{}
@@ -146,9 +152,8 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ivl := time.Duration(float64(time.Millisecond) * reqData.Interval)
-	days := ivl.Hours() / 24
 
-	if ivl < time.Hour || ivl > timeutil.Day*366 || !checkInterval(uint32(days)) {
+	if ivl < time.Hour || ivl > timeutil.Day*365 {
 		aghhttp.Error(r, w, http.StatusBadRequest, "unsupported interval")
 
 		return
@@ -159,7 +164,9 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.setLimit(int(days))
+	s.enabled = reqData.Enabled == aghalg.NBTrue
+
+	s.limitHours = ivl
 
 	if len(reqData.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(reqData.Ignored)
@@ -167,9 +174,9 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 			aghhttp.Error(r, w, http.StatusBadRequest, "ignored: %s", serr)
 
 			return
-		} else {
-			s.ignored = set
 		}
+
+		s.ignored = set
 	}
 }
 

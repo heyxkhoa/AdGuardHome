@@ -65,9 +65,9 @@ func GenerateHostname(ip net.IP) (hostname string) {
 	return generateIPv6Hostname(ip)
 }
 
-// NewDomainNameSet returns nil and error, if list has duplicate or empty host
-// name.  Otherwise returns a set, which contains lowercase host names without
-// dot at the end, and nil error.
+// NewDomainNameSet returns nil and error, if list has duplicate or empty
+// domain name.  Otherwise returns a set, which contains non-FQDN domain names,
+// and nil error.
 func NewDomainNameSet(list []string) (set *stringutil.Set, err error) {
 	set = stringutil.NewSet()
 

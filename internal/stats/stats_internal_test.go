@@ -37,7 +37,7 @@ func TestStats_races(t *testing.T) {
 	conf := Config{
 		UnitID:    idGen,
 		Filename:  filepath.Join(t.TempDir(), "./stats.db"),
-		LimitDays: 1,
+		LimitDays: time.Hour * 24,
 	}
 
 	s, err := New(conf)

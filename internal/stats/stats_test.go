@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/AdguardTeam/AdGuardHome/internal/stats"
 	"github.com/AdguardTeam/golibs/netutil"
@@ -52,7 +53,7 @@ func TestStats(t *testing.T) {
 	handlers := map[string]http.Handler{}
 	conf := stats.Config{
 		Filename:  filepath.Join(t.TempDir(), "stats.db"),
-		LimitDays: 1,
+		LimitDays: time.Hour * 24,
 		Enabled:   true,
 		UnitID:    constUnitID,
 		HTTPRegister: func(_, url string, handler http.HandlerFunc) {
@@ -158,7 +159,7 @@ func TestLargeNumbers(t *testing.T) {
 
 	conf := stats.Config{
 		Filename:     filepath.Join(t.TempDir(), "stats.db"),
-		LimitDays:    1,
+		LimitDays:    time.Hour * 24,
 		Enabled:      true,
 		UnitID:       func() (id uint32) { return atomic.LoadUint32(&curHour) },
 		HTTPRegister: func(_, url string, handler http.HandlerFunc) { handlers[url] = handler },

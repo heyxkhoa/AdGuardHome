@@ -51,7 +51,7 @@ func initDNS() (err error) {
 
 	statsConf := stats.Config{
 		Filename:       filepath.Join(baseDir, "stats.db"),
-		LimitDays:      config.Stats.Interval,
+		LimitDays:      config.Stats.Interval.Duration,
 		ConfigModified: onConfigModified,
 		HTTPRegister:   httpRegister,
 		Enabled:        config.Stats.Enabled,
@@ -87,7 +87,10 @@ func initDNS() (err error) {
 	}
 
 	conf.Ignored = set
-	Context.queryLog = querylog.New(conf)
+	Context.queryLog, err = querylog.New(conf)
+	if err != nil {
+		return fmt.Errorf("init querylog: %w", err)
+	}
 
 	Context.filters, err = filtering.New(config.DNS.DnsfilterConf, nil)
 	if err != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/AdguardTeam/AdGuardHome/internal/aghnet"
 	"github.com/AdguardTeam/AdGuardHome/internal/filtering"
 	"github.com/AdguardTeam/golibs/errors"
-	"github.com/AdguardTeam/golibs/log"
 	"github.com/AdguardTeam/golibs/stringutil"
 	"github.com/AdguardTeam/golibs/timeutil"
 	"github.com/miekg/dns"
@@ -135,12 +134,12 @@ func (p *AddParams) validate() (err error) {
 }
 
 // New creates a new instance of the query log.
-func New(conf Config) (ql QueryLog) {
+func New(conf Config) (ql QueryLog, err error) {
 	return newQueryLog(conf)
 }
 
 // newQueryLog crates a new queryLog.
-func newQueryLog(conf Config) (l *queryLog) {
+func newQueryLog(conf Config) (l *queryLog, err error) {
 	findClient := conf.FindClient
 	if findClient == nil {
 		findClient = func(_ []string) (_ *Client, _ error) {
@@ -158,13 +157,12 @@ func newQueryLog(conf Config) (l *queryLog) {
 	l.conf = &Config{}
 	*l.conf = conf
 
-	if !checkInterval(conf.RotationIvl) {
-		log.Info(
-			"querylog: warning: unsupported rotation interval %s, setting to 1 day",
-			conf.RotationIvl,
-		)
-		l.conf.RotationIvl = timeutil.Day
+	if conf.RotationIvl < time.Hour {
+		return nil, errors.Error("interval: less than an hour")
+	}
+	if conf.RotationIvl > timeutil.Day*365 {
+		return nil, errors.Error("interval: more than a year")
 	}
 
-	return l
+	return l, nil
 }

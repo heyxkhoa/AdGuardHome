@@ -240,9 +240,8 @@ type statsConfig struct {
 	// Enabled defines if the statistics are enabled.
 	Enabled bool `yaml:"enabled"`
 
-	// Interval is the time interval for flushing statistics to the disk in
-	// days.
-	Interval uint32 `yaml:"interval"`
+	// Interval is the time interval for flushing statistics to the disk.
+	Interval timeutil.Duration `yaml:"interval"`
 
 	// Ignored is the list of host names, which should not be counted.
 	Ignored []string `yaml:"ignored"`
@@ -306,7 +305,7 @@ var config = &configuration{
 	},
 	Stats: statsConfig{
 		Enabled:  true,
-		Interval: 1,
+		Interval: timeutil.Duration{Duration: 1 * timeutil.Day},
 		Ignored:  []string{},
 	},
 	// NOTE: Keep these parameters in sync with the one put into
@@ -487,7 +486,7 @@ func (c *configuration) write() (err error) {
 	if Context.stats != nil {
 		statsConf := stats.Config{}
 		Context.stats.WriteDiskConfig(&statsConf)
-		config.Stats.Interval = statsConf.LimitDays
+		config.Stats.Interval = timeutil.Duration{Duration: statsConf.LimitDays}
 		config.Stats.Enabled = statsConf.Enabled
 		config.Stats.Ignored = statsConf.Ignored.Values()
 		sort.Strings(config.Stats.Ignored)
