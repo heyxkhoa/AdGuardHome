@@ -80,6 +80,8 @@ type configRespV2 struct {
 }
 
 // handleStatsInfo handles requests to the GET /control/stats_info endpoint.
+//
+// Deprecated:  Remove it when migration to the new API is over.
 func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -117,6 +119,8 @@ func (s *StatsCtx) handleStatsInfoV2(w http.ResponseWriter, r *http.Request) {
 
 // handleStatsConfig handles requests to the POST /control/stats_config
 // endpoint.
+//
+// Deprecated:  Remove it when migration to the new API is over.
 func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	reqData := configResp{}
 	err := json.NewDecoder(r.Body).Decode(&reqData)
@@ -137,10 +141,10 @@ func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.setLimit(int(reqData.IntervalDays))
+	s.setLimitLocked(int(reqData.IntervalDays))
 }
 
-// handleStatsConfigV2 handles requests to the POST /control/stats_config
+// handleStatsConfigV2 handles requests to the PUT /control/stats_config
 // endpoint.
 func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	reqData := configRespV2{}
@@ -194,7 +198,6 @@ func (s *StatsCtx) initWeb() {
 		return
 	}
 
-	// TODO(s.chzhen):  Remove deprecated API.
 	s.httpRegister(http.MethodGet, "/control/stats", s.handleStats)
 	s.httpRegister(http.MethodPost, "/control/stats_reset", s.handleStatsReset)
 	s.httpRegister(http.MethodPost, "/control/stats_config", s.handleStatsConfig)

@@ -131,9 +131,11 @@ func New(conf Config) (s *StatsCtx, err error) {
 	if conf.LimitIvl < time.Hour {
 		return nil, errors.Error("interval: less than an hour")
 	}
+
 	if conf.LimitIvl > timeutil.Day*365 {
 		return nil, errors.Error("interval: more than a year")
 	}
+
 	s.limitIvl = conf.LimitIvl
 
 	if s.unitIDGen = newUnitID; conf.UnitID != nil {
@@ -268,7 +270,7 @@ func (s *StatsCtx) WriteDiskConfig(dc *Config) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	dc.LimitIvl = s.limitIvl / 24
+	dc.LimitIvl = s.limitIvl
 	dc.Enabled = s.enabled
 	dc.Ignored = s.ignored
 }
@@ -442,7 +444,9 @@ func (s *StatsCtx) periodicFlush() {
 }
 
 // s.lock is expected to be locked.
-func (s *StatsCtx) setLimit(limitDays int) {
+//
+// TODO(s.chzhen):  Remove it when migration to the new API is over.
+func (s *StatsCtx) setLimitLocked(limitDays int) {
 	if limitDays != 0 {
 		s.enabled = true
 		s.limitIvl = time.Duration(int(timeutil.Day) * limitDays)

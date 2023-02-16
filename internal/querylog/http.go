@@ -57,7 +57,6 @@ type configJSONv2 struct {
 
 // Register web handlers
 func (l *queryLog) initWeb() {
-	// TODO(s.chzhen):  Remove deprecated API.
 	l.conf.HTTPRegister(http.MethodGet, "/control/querylog", l.handleQueryLog)
 	l.conf.HTTPRegister(http.MethodGet, "/control/querylog_info", l.handleQueryLogInfo)
 	l.conf.HTTPRegister(http.MethodPost, "/control/querylog_clear", l.handleQueryLogClear)
@@ -98,6 +97,8 @@ func (l *queryLog) handleQueryLogClear(_ http.ResponseWriter, _ *http.Request) {
 
 // handleQueryLogInfo handles requests to the GET /control/querylog_info
 // endpoint.
+//
+// Deprecated:  Remove it when migration to the new API is over.
 func (l *queryLog) handleQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -116,8 +117,8 @@ func (l *queryLog) handleQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleQueryLogInfoV2 handles requests to the GET
-// /control/querylog/config endpoint.
+// handleQueryLogInfoV2 handles requests to the GET /control/querylog/config
+// endpoint.
 func (l *queryLog) handleQueryLogInfoV2(w http.ResponseWriter, r *http.Request) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -146,6 +147,8 @@ func AnonymizeIP(ip net.IP) {
 }
 
 // handleQueryLogConfig handles the POST /control/querylog_config queries.
+//
+// Deprecated:  Remove it when migration to the new API is over.
 func (l *queryLog) handleQueryLogConfig(w http.ResponseWriter, r *http.Request) {
 	// Set NaN as initial value to be able to know if it changed later by
 	// comparing it to NaN.
