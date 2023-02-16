@@ -51,7 +51,7 @@ func initDNS() (err error) {
 
 	statsConf := stats.Config{
 		Filename:       filepath.Join(baseDir, "stats.db"),
-		LimitDays:      config.Stats.Interval.Duration,
+		LimitIvl:       config.Stats.Interval.Duration,
 		ConfigModified: onConfigModified,
 		HTTPRegister:   httpRegister,
 		Enabled:        config.Stats.Enabled,

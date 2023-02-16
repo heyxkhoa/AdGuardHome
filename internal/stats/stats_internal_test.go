@@ -35,9 +35,9 @@ func TestStats_races(t *testing.T) {
 	var r uint32
 	idGen := func() (id uint32) { return atomic.LoadUint32(&r) }
 	conf := Config{
-		UnitID:    idGen,
-		Filename:  filepath.Join(t.TempDir(), "./stats.db"),
-		LimitDays: time.Hour * 24,
+		UnitID:   idGen,
+		Filename: filepath.Join(t.TempDir(), "./stats.db"),
+		LimitIvl: time.Hour * 24,
 	}
 
 	s, err := New(conf)

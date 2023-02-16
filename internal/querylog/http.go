@@ -57,6 +57,7 @@ type configJSONv2 struct {
 
 // Register web handlers
 func (l *queryLog) initWeb() {
+	// TODO(s.chzhen):  Remove deprecated API.
 	l.conf.HTTPRegister(http.MethodGet, "/control/querylog", l.handleQueryLog)
 	l.conf.HTTPRegister(http.MethodGet, "/control/querylog_info", l.handleQueryLogInfo)
 	l.conf.HTTPRegister(http.MethodPost, "/control/querylog_clear", l.handleQueryLogClear)
