@@ -443,7 +443,8 @@ func (s *StatsCtx) periodicFlush() {
 	log.Debug("periodic flushing finished")
 }
 
-// s.lock is expected to be locked.
+// setLimitLocked sets the limit interval without locking.  For internal use
+// only.
 //
 // TODO(s.chzhen):  Remove it when migration to the new API is over.
 func (s *StatsCtx) setLimitLocked(limitDays int) {
