@@ -6,6 +6,53 @@
 
 
 
+## v0.107.25: API changes
+
+### `GET /control/stats_info` is deprecated
+
+Use `GET /control/stats/config`.
+
+### `POST /control/stats_config` is deprecated
+
+Use `PUT /control/stats/config/update`.
+
+* The new `PUT /control/stats/config/update` HTTP API allows config updates.
+
+These `control/stats/config/update` and `control/stats/config` APIs accept and
+return a JSON object with the following format:
+
+```json
+{
+  "enabled": true,
+  "interval": 3600,
+  "ignored": ["example.com"],
+}
+```
+
+### `GET /control/querylog_info` is deprecated
+
+Use `GET /control/querylog/config`.
+
+### `POST /control/querylog_config` is deprecated
+
+Use `PUT /control/querylog/config/update`.
+
+* The new `PUT /control/querylog/config/update` HTTP API allows config updates.
+
+These `control/querylog/config/update` and `control/querylog/config` APIs
+accept and return a JSON object with the following format:
+
+```json
+{
+  "enabled": true,
+  "anonymize_client_ip": false,
+  "interval": 3600,
+  "ignored": ["example.com"],
+}
+```
+
+
+
 ## v0.107.23: API changes
 
 ### Experimental “beta” APIs removed

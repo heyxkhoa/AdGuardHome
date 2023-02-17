@@ -22,7 +22,7 @@ import (
 )
 
 // currentSchemaVersion is the current schema version.
-const currentSchemaVersion = 16
+const currentSchemaVersion = 17
 
 // These aliases are provided for convenience.
 type (
@@ -89,6 +89,7 @@ func upgradeConfigSchema(oldVersion int, diskConf yobj) (err error) {
 		upgradeSchema13to14,
 		upgradeSchema14to15,
 		upgradeSchema15to16,
+		upgradeSchema16to17,
 	}
 
 	n := 0
@@ -901,6 +902,47 @@ func upgradeSchema15to16(diskConf yobj) (err error) {
 	delete(dns, k)
 
 	diskConf["statistics"] = stats
+
+	return nil
+}
+
+// upgradeSchema16to17 performs the following changes:
+//
+//	# BEFORE:
+//	'statistics':
+//	  'interval': 1
+//
+//	# AFTER:
+//	'statistics':
+//	  'interval': 24h
+func upgradeSchema16to17(diskConf yobj) (err error) {
+	log.Printf("Upgrade yaml: 16 to 17")
+	diskConf["schema_version"] = 17
+
+	statsVal, ok := diskConf["statistics"]
+	if !ok {
+		return nil
+	}
+
+	var stats yobj
+	stats, ok = statsVal.(yobj)
+	if !ok {
+		return fmt.Errorf("unexpected type of stats: %T", statsVal)
+	}
+
+	const field = "interval"
+
+	// Set the initial value from home.initConfig function.
+	statsIvl := 1
+	statsIvlVal, ok := stats[field]
+	if ok {
+		statsIvl, ok = statsIvlVal.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type of %s: %T", field, statsIvlVal)
+		}
+	}
+
+	stats[field] = timeutil.Duration{Duration: time.Duration(statsIvl) * timeutil.Day}
 
 	return nil
 }

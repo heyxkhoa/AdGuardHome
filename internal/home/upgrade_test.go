@@ -747,3 +747,98 @@ func TestUpgradeSchema15to16(t *testing.T) {
 		})
 	}
 }
+
+func TestUpgradeSchema16to17(t *testing.T) {
+	testCases := []struct {
+		ivl     any
+		want    any
+		wantErr string
+		name    string
+	}{{
+		ivl:     1,
+		want:    timeutil.Duration{Duration: timeutil.Day},
+		wantErr: "",
+		name:    "success",
+	}, {
+		ivl:     0.25,
+		want:    0,
+		wantErr: "unexpected type of interval: float64",
+		name:    "fail",
+	}}
+
+	for _, tc := range testCases {
+		conf := yobj{
+			"statistics": yobj{
+				"interval": tc.ivl,
+			},
+			"schema_version": 16,
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			err := upgradeSchema16to17(conf)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+
+				assert.Equal(t, tc.wantErr, err.Error())
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, conf["schema_version"], 17)
+
+			statsVal, ok := conf["statistics"]
+			require.True(t, ok)
+
+			var stats yobj
+			stats, ok = statsVal.(yobj)
+			require.True(t, ok)
+
+			var newIvl timeutil.Duration
+			newIvl, ok = stats["interval"].(timeutil.Duration)
+			require.True(t, ok)
+
+			assert.Equal(t, tc.want, newIvl)
+		})
+	}
+
+	t.Run("no_stats", func(t *testing.T) {
+		err := upgradeSchema16to17(yobj{})
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("bad_stats", func(t *testing.T) {
+		err := upgradeSchema16to17(yobj{
+			"statistics": 0,
+		})
+
+		testutil.AssertErrorMsg(t, "unexpected type of stats: int", err)
+	})
+
+	t.Run("no_field", func(t *testing.T) {
+		conf := yobj{
+			"statistics": yobj{},
+		}
+
+		err := upgradeSchema16to17(conf)
+		require.NoError(t, err)
+
+		statsVal, ok := conf["statistics"]
+		require.True(t, ok)
+
+		var stats yobj
+		stats, ok = statsVal.(yobj)
+		require.True(t, ok)
+
+		var ivl any
+		ivl, ok = stats["interval"]
+		require.True(t, ok)
+
+		var ivlVal timeutil.Duration
+		ivlVal, ok = ivl.(timeutil.Duration)
+		require.True(t, ok)
+
+		assert.Equal(t, 24*time.Hour, ivlVal.Duration)
+	})
+}

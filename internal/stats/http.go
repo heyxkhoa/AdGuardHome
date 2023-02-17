@@ -90,8 +90,7 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 
 	ok := checkInterval(days)
 	if !ok || (s.enabled && days == 0) {
-		t := timeutil.Day * 90
-		days = uint32(t.Hours() / 24)
+		days = 90
 	}
 
 	resp := configResp{IntervalDays: days}
