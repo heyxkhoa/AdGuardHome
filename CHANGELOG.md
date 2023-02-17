@@ -23,6 +23,15 @@ See also the [v0.107.25 GitHub milestone][ms-v0.107.25].
 NOTE: Add new changes BELOW THIS COMMENT.
 -->
 
+### Added
+
+- The new HTTP APIs `PUT /control/stats/config/update`,  `GET
+  control/stats/config` accept and return statisics config JSON file.  The
+  format of request body is described in `openapi/openapi.yaml`.
+- The new HTTP APIs `PUT /control/querylog/config/update`,  `GET
+  control/querylog/config` accept and return query log config JSON file.  The
+  format of request body is described in `openapi/openapi.yaml`.
+
 ### Fixed
 
 - Failing service installation via script on FreeBSD ([#5431]).

@@ -226,6 +226,9 @@
                 '$ref': '#/components/schemas/QueryLog'
   '/querylog_info':
     'get':
+      'deprecated': true
+      'description': >
+        Deprecated: Use `GET /querylog/config` instead.
       'tags':
       - 'log'
       'operationId': 'queryLogInfo'
@@ -239,6 +242,9 @@
                 '$ref': '#/components/schemas/QueryLogConfig'
   '/querylog_config':
     'post':
+      'deprecated': true
+      'description': >
+        Deprecated: Use `PUT /querylog/config/update` instead.
       'tags':
       - 'log'
       'operationId': 'queryLogConfig'
@@ -257,6 +263,33 @@
       - 'log'
       'operationId': 'querylogClear'
       'summary': 'Clear query log'
+      'responses':
+        '200':
+          'description': 'OK.'
+  '/querylog/config':
+    'get':
+      'tags':
+      - 'log'
+      'operationId': 'getQueryLogConfig'
+      'summary': 'Get query log parameters'
+      'responses':
+        '200':
+          'description': 'OK.'
+          'content':
+            'application/json':
+              'schema':
+                '$ref': '#/components/schemas/QueryLogConfigV2'
+  '/querylog/config/update':
+    'put':
+      'tags':
+      - 'log'
+      'operationId': 'putQueryLogConfig'
+      'summary': 'Set query log parameters'
+      'requestBody':
+        'content':
+          'application/json':
+            'schema':
+              '$ref': '#/components/schemas/QueryLogConfigV2'
       'responses':
         '200':
           'description': 'OK.'
@@ -284,6 +317,9 @@
           'description': 'OK.'
   '/stats_info':
     'get':
+      'deprecated': true
+      'description': >
+        Deprecated: Use `GET /stats/config` instead.
       'tags':
       - 'stats'
       'operationId': 'statsInfo'
@@ -297,6 +333,9 @@
                 '$ref': '#/components/schemas/StatsConfig'
   '/stats_config':
     'post':
+      'deprecated': true
+      'description': >
+        Deprecated: Use `PUT /stats/config/update` instead.
       'tags':
       - 'stats'
       'operationId': 'statsConfig'
@@ -306,6 +345,33 @@
           'application/json':
             'schema':
               '$ref': '#/components/schemas/StatsConfig'
+      'responses':
+        '200':
+          'description': 'OK.'
+  '/stats/config':
+    'get':
+      'tags':
+      - 'stats'
+      'operationId': 'getStatsConfig'
+      'summary': 'Get statistics parameters'
+      'responses':
+        '200':
+          'description': 'OK.'
+          'content':
+            'application/json':
+              'schema':
+                '$ref': '#/components/schemas/StatsConfigV2'
+  '/stats/config/update':
+    'put':
+      'tags':
+      - 'stats'
+      'operationId': 'putStatsConfig'
+      'summary': 'Set statistics parameters'
+      'requestBody':
+        'content':
+          'application/json':
+            'schema':
+              '$ref': '#/components/schemas/StatsConfigV2'
       'responses':
         '200':
           'description': 'OK.'
@@ -1654,6 +1720,21 @@
           - 30
           - 90
           'type': 'integer'
+    'StatsConfigV2':
+      'type': 'object'
+      'description': 'Statistics configuration'
+      'properties':
+        'enabled':
+          'description': 'Are statistics enabled'
+          'type': 'boolean'
+        'interval':
+          'description': 'Statistics rotation interval'
+          'type': 'number'
+        'ignored':
+          'description': 'List of host names, which should not be counted'
+          'type': 'array'
+          'items':
+            'type': 'string'
     'DhcpConfig':
       'type': 'object'
       'properties':
@@ -2057,6 +2138,25 @@
         'anonymize_client_ip':
           'type': 'boolean'
           'description': "Anonymize clients' IP addresses"
+    'QueryLogConfigV2':
+      'type': 'object'
+      'description': 'Query log configuration'
+      'properties':
+        'enabled':
+          'type': 'boolean'
+          'description': 'Is query log enabled'
+        'interval':
+          'description': >
+            Time period for query log rotation.
+          'type': 'number'
+        'anonymize_client_ip':
+          'type': 'boolean'
+          'description': "Anonymize clients' IP addresses"
+        'ignored':
+          'description': 'List of host names, which should not be written to log'
+          'type': 'array'
+          'items':
+            'type': 'string'
     'ResultRule':
       'description': 'Applied rule.'
       'properties':
