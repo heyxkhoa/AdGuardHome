@@ -15,8 +15,8 @@
 
 ### New `"protection_disabled_until"` field in `GET /control/status` response
 
-* The new field `"protection_disabled_until"` is the timestamp until when the
-  protection is disabled.
+* The new field `"protection_disabled_until"` is the duration of protection
+  pause in milliseconds.
 
 ### `POST /control/protection`
 
