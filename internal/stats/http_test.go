@@ -27,6 +27,7 @@ func TestHandleStatsV2(t *testing.T) {
 		name     string
 		body     configRespV2
 		wantCode int
+		wantErr  string
 	}{{
 		name: "set_ivl_1_hour",
 		body: configRespV2{
@@ -35,6 +36,7 @@ func TestHandleStatsV2(t *testing.T) {
 			Ignored:  nil,
 		},
 		wantCode: http.StatusOK,
+		wantErr:  "",
 	}, {
 		name: "small_interval",
 		body: configRespV2{
@@ -43,6 +45,7 @@ func TestHandleStatsV2(t *testing.T) {
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusBadRequest,
+		wantErr:  "unsupported interval\n",
 	}, {
 		name: "big_interval",
 		body: configRespV2{
@@ -51,6 +54,7 @@ func TestHandleStatsV2(t *testing.T) {
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusBadRequest,
+		wantErr:  "unsupported interval\n",
 	}, {
 		name: "set_ignored_ivl_1_year",
 		body: configRespV2{
@@ -58,10 +62,11 @@ func TestHandleStatsV2(t *testing.T) {
 			Interval: float64(year.Milliseconds()),
 			Ignored: []string{
 				"ignor.ed",
-				"ignor.ed",
+				"ignored.to",
 			},
 		},
-		wantCode: http.StatusBadRequest,
+		wantCode: http.StatusOK,
+		wantErr:  "",
 	}, {
 		name: "ignored_duplicate",
 		body: configRespV2{
@@ -73,6 +78,7 @@ func TestHandleStatsV2(t *testing.T) {
 			},
 		},
 		wantCode: http.StatusBadRequest,
+		wantErr:  "ignored: duplicate host name \"ignor.ed\"\n",
 	}, {
 		name: "ignored_empty",
 		body: configRespV2{
@@ -83,6 +89,7 @@ func TestHandleStatsV2(t *testing.T) {
 			},
 		},
 		wantCode: http.StatusBadRequest,
+		wantErr:  "ignored: host name is empty\n",
 	}}
 
 	for _, tc := range testCases {
@@ -91,7 +98,7 @@ func TestHandleStatsV2(t *testing.T) {
 
 			conf := Config{
 				Filename: filepath.Join(t.TempDir(), "stats.db"),
-				LimitIvl: time.Hour * 24,
+				Limit:    time.Hour * 24,
 				Enabled:  true,
 				UnitID:   func() (id uint32) { return 0 },
 				HTTPRegister: func(
@@ -106,6 +113,7 @@ func TestHandleStatsV2(t *testing.T) {
 
 			s, err := New(conf)
 			require.NoError(t, err)
+
 			s.Start()
 			testutil.CleanupAndRequireSuccess(t, s.Close)
 
@@ -119,22 +127,27 @@ func TestHandleStatsV2(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPut, configPut, bytes.NewReader(buf))
 			rw := httptest.NewRecorder()
+
 			handlers[configPut].ServeHTTP(rw, req)
 			require.Equal(t, tc.wantCode, rw.Code)
 
-			if tc.wantCode == http.StatusOK {
-				resp := httptest.NewRequest(http.MethodGet, configGet, nil)
-				rw = httptest.NewRecorder()
-				handlers[configGet].ServeHTTP(rw, resp)
-				require.Equal(t, http.StatusOK, rw.Code)
-				data := rw.Body.Bytes()
+			if tc.wantCode != http.StatusOK {
+				assert.Equal(t, tc.wantErr, rw.Body.String())
 
-				ans := configRespV2{}
-				jerr := json.Unmarshal(data, &ans)
-				require.NoError(t, jerr)
-
-				assert.Equal(t, tc.body, ans)
+				return
 			}
+
+			resp := httptest.NewRequest(http.MethodGet, configGet, nil)
+			rw = httptest.NewRecorder()
+
+			handlers[configGet].ServeHTTP(rw, resp)
+			require.Equal(t, http.StatusOK, rw.Code)
+
+			ans := configRespV2{}
+			jerr := json.Unmarshal(rw.Body.Bytes(), &ans)
+			require.NoError(t, jerr)
+
+			assert.Equal(t, tc.body, ans)
 		})
 	}
 }

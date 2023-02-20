@@ -25,12 +25,37 @@ NOTE: Add new changes BELOW THIS COMMENT.
 
 ### Added
 
-- The new HTTP APIs `PUT /control/stats/config/update`,  `GET
+- The new HTTP APIs `PUT /control/stats/config/update`, `GET
   control/stats/config` accept and return statisics config JSON file.  The
   format of request body is described in `openapi/openapi.yaml`.
-- The new HTTP APIs `PUT /control/querylog/config/update`,  `GET
+- The new HTTP APIs `PUT /control/querylog/config/update`, `GET
   control/querylog/config` accept and return query log config JSON file.  The
   format of request body is described in `openapi/openapi.yaml`.
+
+### Changed
+
+#### Configuration Changes
+
+In this release, the schema version has changed from 16 to 17.
+
+- Property `statistics.interval`, which in schema versions 16 and earlier used
+  to be an integer number of days, is now a string with a human-readable
+  duration:
+
+  ```yaml
+  # BEFORE:
+  'statistics':
+    # …
+    'interval': 1
+
+  # AFTER:
+  'statistics':
+    # …
+    'interval': '24h'
+  ```
+
+  To rollback this change, convert the property back into days and change the
+  `schema_version` back to `16`.
 
 ### Fixed
 

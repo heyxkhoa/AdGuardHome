@@ -43,9 +43,9 @@ type Config struct {
 	// Filename is the name of the database file.
 	Filename string
 
-	// LimitIvl is the interval for collecting statistics into the current
-	// unit.
-	LimitIvl time.Duration
+	// Limit is an upper limit for collecting statistics into the
+	// current unit.
+	Limit time.Duration
 
 	// Enabled tells if the statistics are enabled.
 	Enabled bool
@@ -106,9 +106,9 @@ type StatsCtx struct {
 	// enabled tells if the statistics are enabled.
 	enabled bool
 
-	// limitIvl is the interval for collecting statistics into the current
-	// unit.
-	limitIvl time.Duration
+	// limit is an upper limit for collecting statistics into the
+	// current unit.
+	limit time.Duration
 
 	// ignored is the list of host names, which should not be counted.
 	ignored *stringutil.Set
@@ -128,15 +128,15 @@ func New(conf Config) (s *StatsCtx, err error) {
 		ignored:        conf.Ignored,
 	}
 
-	if conf.LimitIvl < time.Hour {
+	if conf.Limit < time.Hour {
 		return nil, errors.Error("interval: less than an hour")
 	}
 
-	if conf.LimitIvl > timeutil.Day*365 {
+	if conf.Limit > timeutil.Day*365 {
 		return nil, errors.Error("interval: more than a year")
 	}
 
-	s.limitIvl = conf.LimitIvl
+	s.limit = conf.Limit
 
 	if s.unitIDGen = newUnitID; conf.UnitID != nil {
 		s.unitIDGen = conf.UnitID
@@ -157,7 +157,7 @@ func New(conf Config) (s *StatsCtx, err error) {
 		return nil, fmt.Errorf("stats: opening a transaction: %w", err)
 	}
 
-	deleted := deleteOldUnits(tx, id-uint32(s.limitIvl.Hours())-1)
+	deleted := deleteOldUnits(tx, id-uint32(s.limit.Hours())-1)
 	udb = loadUnitFromDB(tx, id)
 
 	err = finishTxn(tx, deleted > 0)
@@ -238,7 +238,7 @@ func (s *StatsCtx) Update(e Entry) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if !s.enabled || s.limitIvl == 0 {
+	if !s.enabled || s.limit == 0 {
 		return
 	}
 
@@ -270,7 +270,7 @@ func (s *StatsCtx) WriteDiskConfig(dc *Config) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	dc.LimitIvl = s.limitIvl
+	dc.Limit = s.limit
 	dc.Enabled = s.enabled
 	dc.Ignored = s.ignored
 }
@@ -280,7 +280,7 @@ func (s *StatsCtx) TopClientsIP(maxCount uint) (ips []netip.Addr) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	limit := uint32(s.limitIvl.Hours())
+	limit := uint32(s.limit.Hours())
 	if !s.enabled || limit == 0 {
 		return nil
 	}
@@ -384,7 +384,7 @@ func (s *StatsCtx) flush() (cont bool, sleepFor time.Duration) {
 		return false, 0
 	}
 
-	limit := uint32(s.limitIvl.Hours())
+	limit := uint32(s.limit.Hours())
 	if limit == 0 || ptr.id == id {
 		return true, time.Second
 	}
@@ -450,7 +450,7 @@ func (s *StatsCtx) periodicFlush() {
 func (s *StatsCtx) setLimitLocked(limitDays int) {
 	if limitDays != 0 {
 		s.enabled = true
-		s.limitIvl = time.Duration(int(timeutil.Day) * limitDays)
+		s.limit = time.Duration(int(timeutil.Day) * limitDays)
 		log.Debug("stats: set limit: %d days", limitDays)
 
 		return

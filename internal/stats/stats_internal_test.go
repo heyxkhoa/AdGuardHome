@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AdguardTeam/golibs/testutil"
+	"github.com/AdguardTeam/golibs/timeutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +38,7 @@ func TestStats_races(t *testing.T) {
 	conf := Config{
 		UnitID:   idGen,
 		Filename: filepath.Join(t.TempDir(), "./stats.db"),
-		LimitIvl: time.Hour * 24,
+		Limit:    timeutil.Day,
 	}
 
 	s, err := New(conf)

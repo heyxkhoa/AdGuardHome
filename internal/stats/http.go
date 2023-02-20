@@ -47,7 +47,7 @@ func (s *StatsCtx) handleStats(w http.ResponseWriter, r *http.Request) {
 	defer s.lock.Unlock()
 
 	start := time.Now()
-	resp, ok := s.getData(uint32(s.limitIvl.Hours()))
+	resp, ok := s.getData(uint32(s.limit.Hours()))
 	log.Debug("stats: prepared data in %v", time.Since(start))
 
 	if !ok {
@@ -72,7 +72,7 @@ type configRespV2 struct {
 	// to be able to tell when it's set without using pointers.
 	Enabled aghalg.NullBool `json:"enabled"`
 
-	// Interval is the statistics rotation interval.
+	// Interval is the statistics rotation interval in milliseconds.
 	Interval float64 `json:"interval"`
 
 	// Ignored is the list of host names, which should not be counted.
@@ -86,7 +86,7 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	days := uint32(s.limitIvl.Hours() / 24)
+	days := uint32(s.limit.Hours() / 24)
 
 	ok := checkInterval(days)
 	if !ok || (s.enabled && days == 0) {
@@ -107,7 +107,7 @@ func (s *StatsCtx) handleStatsInfoV2(w http.ResponseWriter, r *http.Request) {
 
 	resp := configRespV2{
 		Enabled:  aghalg.BoolToNullBool(s.enabled),
-		Interval: float64(s.limitIvl.Milliseconds()),
+		Interval: float64(s.limit.Milliseconds()),
 		Ignored:  s.ignored.Values(),
 	}
 	err := aghhttp.WriteJSONResponse(w, r, resp)
@@ -169,7 +169,7 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 
 	s.enabled = reqData.Enabled == aghalg.NBTrue
 
-	s.limitIvl = ivl
+	s.limit = ivl
 
 	if len(reqData.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(reqData.Ignored)

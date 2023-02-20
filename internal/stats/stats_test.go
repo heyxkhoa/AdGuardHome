@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/AdguardTeam/AdGuardHome/internal/stats"
 	"github.com/AdguardTeam/golibs/netutil"
 	"github.com/AdguardTeam/golibs/testutil"
+	"github.com/AdguardTeam/golibs/timeutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -53,7 +53,7 @@ func TestStats(t *testing.T) {
 	handlers := map[string]http.Handler{}
 	conf := stats.Config{
 		Filename: filepath.Join(t.TempDir(), "stats.db"),
-		LimitIvl: time.Hour * 24,
+		Limit:    timeutil.Day,
 		Enabled:  true,
 		UnitID:   constUnitID,
 		HTTPRegister: func(_, url string, handler http.HandlerFunc) {
@@ -159,7 +159,7 @@ func TestLargeNumbers(t *testing.T) {
 
 	conf := stats.Config{
 		Filename:     filepath.Join(t.TempDir(), "stats.db"),
-		LimitIvl:     time.Hour * 24,
+		Limit:        timeutil.Day,
 		Enabled:      true,
 		UnitID:       func() (id uint32) { return atomic.LoadUint32(&curHour) },
 		HTTPRegister: func(_, url string, handler http.HandlerFunc) { handlers[url] = handler },

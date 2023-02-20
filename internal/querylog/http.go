@@ -38,16 +38,19 @@ type configJSON struct {
 
 // configJSONv2 is the JSON structure for the querylog configuration.
 type configJSONv2 struct {
-	// Enabled shows if the querylog is enabled.  It is an [aghalg.NullBool]
-	// to be able to tell when it's set without using pointers.
+	// Enabled shows if the querylog is enabled.  It is an
+	// [aghalg.NullBool] to be able to tell when it's set without using
+	// pointers.
 	Enabled aghalg.NullBool `json:"enabled"`
 
-	// AnonymizeClientIP shows if the clients' IP addresses must be anonymized.
-	// It is an [aghalg.NullBool] to be able to tell when it's set without using
-	// pointers.
+	// AnonymizeClientIP shows if the clients' IP addresses must be
+	// anonymized.  It is an [aghalg.NullBool] to be able to tell when it's
+	// set without using pointers.
+	//
+	// TODO(a.garipov): Consider using separate setting for statistics.
 	AnonymizeClientIP aghalg.NullBool `json:"anonymize_client_ip"`
 
-	// Interval is the querylog rotation interval.
+	// Interval is the querylog rotation interval in milliseconds
 	Interval float64 `json:"interval"`
 
 	// Ignored is the list of host names, which should not be written to

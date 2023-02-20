@@ -486,7 +486,7 @@ func (c *configuration) write() (err error) {
 	if Context.stats != nil {
 		statsConf := stats.Config{}
 		Context.stats.WriteDiskConfig(&statsConf)
-		config.Stats.Interval = timeutil.Duration{Duration: statsConf.LimitIvl}
+		config.Stats.Interval = timeutil.Duration{Duration: statsConf.Limit}
 		config.Stats.Enabled = statsConf.Enabled
 		config.Stats.Ignored = statsConf.Ignored.Values()
 		sort.Strings(config.Stats.Ignored)
