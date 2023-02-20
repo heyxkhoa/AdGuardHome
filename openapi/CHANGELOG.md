@@ -8,14 +8,16 @@
 
 ## v0.107.25: API changes
 
-### `GET /control/stats_info` is deprecated
+### Deprecated statistics APIs
 
-Use `GET /control/stats/config`.
+* The `GET /control/stats_info` HTTP API; use the new `GET
+  /control/stats/config` API instead.
+* The `POST /control/stats_config` HTTP API; use the new `PUT
+  /control/stats/config/update` API instead.
 
-### `POST /control/stats_config` is deprecated
+### New statistics APIs
 
-Use `PUT /control/stats/config/update`.
-
+* The new `GET /control/stats/config` HTTP API.
 * The new `PUT /control/stats/config/update` HTTP API allows config updates.
 
 These `control/stats/config/update` and `control/stats/config` APIs accept and
@@ -29,14 +31,16 @@ return a JSON object with the following format:
 }
 ```
 
-### `GET /control/querylog_info` is deprecated
+### Deprecated query log APIs
 
-Use `GET /control/querylog/config`.
+* The `GET /control/querylog_info` HTTP API; use the new `GET
+  /control/querylog/config` API instead.
+* The `POST /control/querylog_config` HTTP API; use the new `PUT
+  /control/querylog/config/update` API instead.
 
-### `POST /control/querylog_config` is deprecated
+### New query log APIs
 
-Use `PUT /control/querylog/config/update`.
-
+* The new `GET /control/querylog/config` HTTP API.
 * The new `PUT /control/querylog/config/update` HTTP API allows config updates.
 
 These `control/querylog/config/update` and `control/querylog/config` APIs

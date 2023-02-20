@@ -25,12 +25,12 @@ NOTE: Add new changes BELOW THIS COMMENT.
 
 ### Added
 
-- The new HTTP APIs `PUT /control/stats/config/update`, `GET
-  control/stats/config` accept and return statisics config JSON file.  The
-  format of request body is described in `openapi/openapi.yaml`.
-- The new HTTP APIs `PUT /control/querylog/config/update`, `GET
-  control/querylog/config` accept and return query log config JSON file.  The
-  format of request body is described in `openapi/openapi.yaml`.
+- Two new HTTP APIs, `PUT /control/stats/config/update` and `GET
+  control/stats/config`, which can be used to set and receive the query log
+  configuration.  See openapi/openapi.yaml for the full description.
+- Two new HTTP APIs, `PUT /control/querylog/config/update` and `GET
+  control/querylog/config`, which can be used to set and receive the statistics
+  configuration.  See openapi/openapi.yaml for the full description.
 
 ### Changed
 
@@ -56,6 +56,23 @@ In this release, the schema version has changed from 16 to 17.
 
   To rollback this change, convert the property back into days and change the
   `schema_version` back to `16`.
+
+### Deprecated
+
+- The `GET /control/stats_info` HTTP API; use the new `GET
+  /control/stats/config` API instead.
+
+  **NOTE:** If interval is custom then it will be equal to `90` days for
+  compatibility reasons.
+- The `POST /control/stats_config` HTTP API; use the new `PUT
+  /control/stats/config/update` API instead.
+- The `GET /control/querylog_info` HTTP API; use the new `GET
+  /control/querylog/config` API instead.
+
+  **NOTE:** If interval is custom then it will be equal to `90` days for
+  compatibility reasons.
+- The `POST /control/querylog_config` HTTP API; use the new `PUT
+  /control/querylog/config/update` API instead.
 
 ### Fixed
 

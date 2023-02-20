@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandleStatsV2(t *testing.T) {
+func TestHandleStatsConfig(t *testing.T) {
 	var (
 		halfHour = time.Hour / 2
 		hour     = time.Hour
@@ -25,12 +25,12 @@ func TestHandleStatsV2(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		body     configRespV2
+		body     getConfigResp
 		wantCode int
 		wantErr  string
 	}{{
 		name: "set_ivl_1_hour",
-		body: configRespV2{
+		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(hour.Milliseconds()),
 			Ignored:  nil,
@@ -39,37 +39,36 @@ func TestHandleStatsV2(t *testing.T) {
 		wantErr:  "",
 	}, {
 		name: "small_interval",
-		body: configRespV2{
+		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(halfHour.Milliseconds()),
 			Ignored:  []string{},
 		},
-		wantCode: http.StatusBadRequest,
+		wantCode: http.StatusUnprocessableEntity,
 		wantErr:  "unsupported interval\n",
 	}, {
 		name: "big_interval",
-		body: configRespV2{
+		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(year.Milliseconds() + hour.Milliseconds()),
 			Ignored:  []string{},
 		},
-		wantCode: http.StatusBadRequest,
+		wantCode: http.StatusUnprocessableEntity,
 		wantErr:  "unsupported interval\n",
 	}, {
 		name: "set_ignored_ivl_1_year",
-		body: configRespV2{
+		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(year.Milliseconds()),
 			Ignored: []string{
 				"ignor.ed",
-				"ignored.to",
 			},
 		},
 		wantCode: http.StatusOK,
 		wantErr:  "",
 	}, {
 		name: "ignored_duplicate",
-		body: configRespV2{
+		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(hour.Milliseconds()),
 			Ignored: []string{
@@ -77,19 +76,28 @@ func TestHandleStatsV2(t *testing.T) {
 				"ignor.ed",
 			},
 		},
-		wantCode: http.StatusBadRequest,
+		wantCode: http.StatusUnprocessableEntity,
 		wantErr:  "ignored: duplicate host name \"ignor.ed\"\n",
 	}, {
 		name: "ignored_empty",
-		body: configRespV2{
+		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(hour.Milliseconds()),
 			Ignored: []string{
 				"",
 			},
 		},
-		wantCode: http.StatusBadRequest,
+		wantCode: http.StatusUnprocessableEntity,
 		wantErr:  "ignored: host name is empty\n",
+	}, {
+		name: "enabled_is_null",
+		body: getConfigResp{
+			Enabled:  aghalg.NBNull,
+			Interval: float64(hour.Milliseconds()),
+			Ignored:  []string{},
+		},
+		wantCode: http.StatusUnprocessableEntity,
+		wantErr:  "enabled is null\n",
 	}}
 
 	for _, tc := range testCases {
@@ -132,6 +140,7 @@ func TestHandleStatsV2(t *testing.T) {
 			require.Equal(t, tc.wantCode, rw.Code)
 
 			if tc.wantCode != http.StatusOK {
+				assert.Equal(t, tc.wantCode, rw.Code)
 				assert.Equal(t, tc.wantErr, rw.Body.String())
 
 				return
@@ -143,7 +152,7 @@ func TestHandleStatsV2(t *testing.T) {
 			handlers[configGet].ServeHTTP(rw, resp)
 			require.Equal(t, http.StatusOK, rw.Code)
 
-			ans := configRespV2{}
+			ans := getConfigResp{}
 			jerr := json.Unmarshal(rw.Body.Bytes(), &ans)
 			require.NoError(t, jerr)
 

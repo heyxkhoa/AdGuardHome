@@ -66,8 +66,8 @@ type configResp struct {
 	IntervalDays uint32 `json:"interval"`
 }
 
-// configRespV2 is the response to the GET /control/stats_info.
-type configRespV2 struct {
+// getConfigResp is the response to the GET /control/stats_info.
+type getConfigResp struct {
 	// Enabled shows if statistics are enabled.  It is an [aghalg.NullBool]
 	// to be able to tell when it's set without using pointers.
 	Enabled aghalg.NullBool `json:"enabled"`
@@ -76,7 +76,7 @@ type configRespV2 struct {
 	Interval float64 `json:"interval"`
 
 	// Ignored is the list of host names, which should not be counted.
-	Ignored []string `json:"ignored,omitempty"`
+	Ignored []string `json:"ignored"`
 }
 
 // handleStatsInfo handles requests to the GET /control/stats_info endpoint.
@@ -90,6 +90,8 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 
 	ok := checkInterval(days)
 	if !ok || (s.enabled && days == 0) {
+		// NOTE: If interval is custom we set it to 90 days for
+		// compatibility with old API.
 		days = 90
 	}
 
@@ -100,12 +102,12 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
 
-// handleStatsInfoV2 handles requests to the GET /control/stats_info endpoint.
-func (s *StatsCtx) handleStatsInfoV2(w http.ResponseWriter, r *http.Request) {
+// handleGetStatsConfig handles requests to the GET /control/stats_info endpoint.
+func (s *StatsCtx) handleGetStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	resp := configRespV2{
+	resp := getConfigResp{
 		Enabled:  aghalg.BoolToNullBool(s.enabled),
 		Interval: float64(s.limit.Milliseconds()),
 		Ignored:  s.ignored.Values(),
@@ -143,10 +145,10 @@ func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.setLimitLocked(int(reqData.IntervalDays))
 }
 
-// handleStatsConfigV2 handles requests to the PUT /control/stats_config
+// handlePutStatsConfig handles requests to the PUT /control/stats_config
 // endpoint.
-func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
-	reqData := configRespV2{}
+func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) {
+	reqData := getConfigResp{}
 	err := json.NewDecoder(r.Body).Decode(&reqData)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusBadRequest, "json decode: %s", err)
@@ -157,7 +159,7 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	ivl := time.Duration(float64(time.Millisecond) * reqData.Interval)
 
 	if ivl < time.Hour || ivl > timeutil.Day*365 {
-		aghhttp.Error(r, w, http.StatusBadRequest, "unsupported interval")
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval")
 
 		return
 	}
@@ -167,6 +169,12 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	if reqData.Enabled == aghalg.NBNull {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "enabled is null")
+
+		return
+	}
+
 	s.enabled = reqData.Enabled == aghalg.NBTrue
 
 	s.limit = ivl
@@ -174,7 +182,7 @@ func (s *StatsCtx) handleStatsConfigV2(w http.ResponseWriter, r *http.Request) {
 	if len(reqData.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(reqData.Ignored)
 		if serr != nil {
-			aghhttp.Error(r, w, http.StatusBadRequest, "ignored: %s", serr)
+			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
 
 			return
 		}
@@ -202,7 +210,6 @@ func (s *StatsCtx) initWeb() {
 	s.httpRegister(http.MethodPost, "/control/stats_config", s.handleStatsConfig)
 	s.httpRegister(http.MethodGet, "/control/stats_info", s.handleStatsInfo)
 
-	// API v2.
-	s.httpRegister(http.MethodGet, "/control/stats/config", s.handleStatsInfoV2)
-	s.httpRegister(http.MethodPut, "/control/stats/config/update", s.handleStatsConfigV2)
+	s.httpRegister(http.MethodGet, "/control/stats/config", s.handleGetStatsConfig)
+	s.httpRegister(http.MethodPut, "/control/stats/config/update", s.handlePutStatsConfig)
 }
