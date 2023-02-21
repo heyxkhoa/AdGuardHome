@@ -1257,7 +1257,7 @@
           'maximum': 65535
         'protection_enabled':
           'type': 'boolean'
-        'protection_disabled_until':
+        'protection_disabled_duration':
           'type': 'integer'
           'format': 'int64'
         'dhcp_available':
