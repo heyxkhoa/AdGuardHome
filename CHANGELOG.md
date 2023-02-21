@@ -33,9 +33,11 @@ NOTE: Add new changes BELOW THIS COMMENT.
 
 ### Fixed
 
+- Panic when using unencrypted DNS-over-HTTPS ([#5518]).
 - Failing service installation via script on FreeBSD ([#5431]).
 
 [#1333]: https://github.com/AdguardTeam/AdGuardHome/issues/1333
+[#5518]: https://github.com/AdguardTeam/AdGuardHome/issues/5518
 [#5431]: https://github.com/AdguardTeam/AdGuardHome/issues/5431
 
 <!--
