@@ -6,7 +6,6 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 
 	"github.com/AdguardTeam/AdGuardHome/internal/aghalg"
@@ -21,6 +20,7 @@ import (
 	"github.com/AdguardTeam/golibs/log"
 	"github.com/AdguardTeam/golibs/timeutil"
 	"github.com/google/renameio/maybe"
+	"golang.org/x/exp/slices"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -488,7 +488,7 @@ func (c *configuration) write() (err error) {
 		config.Stats.Interval = timeutil.Duration{Duration: statsConf.Limit}
 		config.Stats.Enabled = statsConf.Enabled
 		config.Stats.Ignored = statsConf.Ignored.Values()
-		sort.Strings(config.Stats.Ignored)
+		slices.Sort(config.Stats.Ignored)
 	}
 
 	if Context.queryLog != nil {
@@ -500,7 +500,7 @@ func (c *configuration) write() (err error) {
 		config.QueryLog.Interval = timeutil.Duration{Duration: dc.RotationIvl}
 		config.QueryLog.MemSize = dc.MemSize
 		config.QueryLog.Ignored = dc.Ignored.Values()
-		sort.Strings(config.QueryLog.Ignored)
+		slices.Sort(config.Stats.Ignored)
 	}
 
 	if Context.filters != nil {
