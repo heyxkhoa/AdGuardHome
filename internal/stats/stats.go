@@ -128,12 +128,8 @@ func New(conf Config) (s *StatsCtx, err error) {
 		ignored:        conf.Ignored,
 	}
 
-	if conf.Limit < time.Hour {
-		return nil, errors.Error("interval: less than an hour")
-	}
-
-	if conf.Limit > timeutil.Day*365 {
-		return nil, errors.Error("interval: more than a year")
+	if conf.Limit < time.Hour || conf.Limit > timeutil.Day*365 {
+		return nil, errors.Error("unsupported interval")
 	}
 
 	s.limit = conf.Limit

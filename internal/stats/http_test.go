@@ -17,11 +17,19 @@ import (
 )
 
 func TestHandleStatsConfig(t *testing.T) {
-	var (
-		halfHour = time.Hour / 2
-		hour     = time.Hour
-		year     = timeutil.Day * 365
+	const (
+		smallIvl = 1 * time.Minute
+		minIvl   = 1 * time.Hour
+		maxIvl   = 365 * timeutil.Day
 	)
+
+	conf := Config{
+		Filename:       filepath.Join(t.TempDir(), "stats.db"),
+		Limit:          time.Hour * 24,
+		Enabled:        true,
+		UnitID:         func() (id uint32) { return 0 },
+		ConfigModified: func() {},
+	}
 
 	testCases := []struct {
 		name     string
@@ -29,10 +37,10 @@ func TestHandleStatsConfig(t *testing.T) {
 		wantCode int
 		wantErr  string
 	}{{
-		name: "set_ivl_1_hour",
+		name: "set_ivl_1_minIvl",
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
-			Interval: float64(hour.Milliseconds()),
+			Interval: float64(minIvl.Milliseconds()),
 			Ignored:  nil,
 		},
 		wantCode: http.StatusOK,
@@ -41,7 +49,7 @@ func TestHandleStatsConfig(t *testing.T) {
 		name: "small_interval",
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
-			Interval: float64(halfHour.Milliseconds()),
+			Interval: float64(smallIvl.Milliseconds()),
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusUnprocessableEntity,
@@ -50,16 +58,16 @@ func TestHandleStatsConfig(t *testing.T) {
 		name: "big_interval",
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
-			Interval: float64(year.Milliseconds() + hour.Milliseconds()),
+			Interval: float64(maxIvl.Milliseconds() + minIvl.Milliseconds()),
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusUnprocessableEntity,
 		wantErr:  "unsupported interval\n",
 	}, {
-		name: "set_ignored_ivl_1_year",
+		name: "set_ignored_ivl_1_maxIvl",
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
-			Interval: float64(year.Milliseconds()),
+			Interval: float64(maxIvl.Milliseconds()),
 			Ignored: []string{
 				"ignor.ed",
 			},
@@ -70,30 +78,30 @@ func TestHandleStatsConfig(t *testing.T) {
 		name: "ignored_duplicate",
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
-			Interval: float64(hour.Milliseconds()),
+			Interval: float64(minIvl.Milliseconds()),
 			Ignored: []string{
 				"ignor.ed",
 				"ignor.ed",
 			},
 		},
 		wantCode: http.StatusUnprocessableEntity,
-		wantErr:  "ignored: duplicate host name \"ignor.ed\"\n",
+		wantErr:  "ignored: duplicate or empty host\n",
 	}, {
 		name: "ignored_empty",
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
-			Interval: float64(hour.Milliseconds()),
+			Interval: float64(minIvl.Milliseconds()),
 			Ignored: []string{
 				"",
 			},
 		},
 		wantCode: http.StatusUnprocessableEntity,
-		wantErr:  "ignored: host name is empty\n",
+		wantErr:  "ignored: duplicate or empty host\n",
 	}, {
 		name: "enabled_is_null",
 		body: getConfigResp{
 			Enabled:  aghalg.NBNull,
-			Interval: float64(hour.Milliseconds()),
+			Interval: float64(minIvl.Milliseconds()),
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusUnprocessableEntity,
@@ -102,23 +110,6 @@ func TestHandleStatsConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			handlers := map[string]http.Handler{}
-
-			conf := Config{
-				Filename: filepath.Join(t.TempDir(), "stats.db"),
-				Limit:    time.Hour * 24,
-				Enabled:  true,
-				UnitID:   func() (id uint32) { return 0 },
-				HTTPRegister: func(
-					_ string,
-					url string,
-					handler http.HandlerFunc,
-				) {
-					handlers[url] = handler
-				},
-				ConfigModified: func() {},
-			}
-
 			s, err := New(conf)
 			require.NoError(t, err)
 
@@ -136,11 +127,10 @@ func TestHandleStatsConfig(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPut, configPut, bytes.NewReader(buf))
 			rw := httptest.NewRecorder()
 
-			handlers[configPut].ServeHTTP(rw, req)
+			s.handlePutStatsConfig(rw, req)
 			require.Equal(t, tc.wantCode, rw.Code)
 
 			if tc.wantCode != http.StatusOK {
-				assert.Equal(t, tc.wantCode, rw.Code)
 				assert.Equal(t, tc.wantErr, rw.Body.String())
 
 				return
@@ -149,12 +139,12 @@ func TestHandleStatsConfig(t *testing.T) {
 			resp := httptest.NewRequest(http.MethodGet, configGet, nil)
 			rw = httptest.NewRecorder()
 
-			handlers[configGet].ServeHTTP(rw, resp)
+			s.handleGetStatsConfig(rw, resp)
 			require.Equal(t, http.StatusOK, rw.Code)
 
 			ans := getConfigResp{}
-			jerr := json.Unmarshal(rw.Body.Bytes(), &ans)
-			require.NoError(t, jerr)
+			err = json.Unmarshal(rw.Body.Bytes(), &ans)
+			require.NoError(t, err)
 
 			assert.Equal(t, tc.body, ans)
 		})

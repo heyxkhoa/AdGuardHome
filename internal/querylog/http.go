@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +27,8 @@ type configJSON struct {
 	// fractional numbers and not mess the API users by changing the units.
 	Interval float64 `json:"interval"`
 
-	// Enabled shows if the querylog is enabled.  It is an [aghalg.NullBool]
-	// to be able to tell when it's set without using pointers.
+	// Enabled shows if the querylog is enabled.  It is an aghalg.NullBool to
+	// be able to tell when it's set without using pointers.
 	Enabled aghalg.NullBool `json:"enabled"`
 
 	// AnonymizeClientIP shows if the clients' IP addresses must be anonymized.
@@ -38,24 +39,22 @@ type configJSON struct {
 
 // getConfigResp is the JSON structure for the querylog configuration.
 type getConfigResp struct {
-	// Enabled shows if the querylog is enabled.  It is an
-	// [aghalg.NullBool] to be able to tell when it's set without using
-	// pointers.
-	Enabled aghalg.NullBool `json:"enabled"`
-
-	// AnonymizeClientIP shows if the clients' IP addresses must be
-	// anonymized.  It is an [aghalg.NullBool] to be able to tell when it's
-	// set without using pointers.
-	//
-	// TODO(a.garipov): Consider using separate setting for statistics.
-	AnonymizeClientIP aghalg.NullBool `json:"anonymize_client_ip"`
+	// Ignored is the list of host names, which should not be written to log.
+	Ignored []string `json:"ignored"`
 
 	// Interval is the querylog rotation interval in milliseconds
 	Interval float64 `json:"interval"`
 
-	// Ignored is the list of host names, which should not be written to
-	// log.
-	Ignored []string `json:"ignored"`
+	// Enabled shows if the querylog is enabled.  It is an aghalg.NullBool to
+	// be able to tell when it's set without using pointers.
+	Enabled aghalg.NullBool `json:"enabled"`
+
+	// AnonymizeClientIP shows if the clients' IP addresses must be anonymized.
+	// It is an aghalg.NullBool to be able to tell when it's set without using
+	// pointers.
+	//
+	// TODO(a.garipov): Consider using separate setting for statistics.
+	AnonymizeClientIP aghalg.NullBool `json:"anonymize_client_ip"`
 }
 
 // Register web handlers
@@ -109,8 +108,8 @@ func (l *queryLog) handleQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 
 	ok := checkInterval(ivl)
 	if !ok {
-		// NOTE: If interval is custom we set it to 90 days for
-		// compatibility with old API.
+		// NOTE: If interval is custom we set it to 90 days for compatibility
+		// with old API.
 		ivl = timeutil.Day * 90
 	}
 
@@ -128,6 +127,7 @@ func (l *queryLog) handleGetQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	defer l.lock.Unlock()
 
 	ignored := l.conf.Ignored.Values()
+	sort.Strings(ignored)
 	_ = aghhttp.WriteJSONResponse(w, r, getConfigResp{
 		Enabled:           aghalg.BoolToNullBool(l.conf.Enabled),
 		Interval:          float64(l.conf.RotationIvl.Milliseconds()),
@@ -257,7 +257,7 @@ func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	if len(newConf.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(newConf.Ignored)
 		if serr != nil {
-			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
+			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: duplicate or empty host")
 
 			return
 		}

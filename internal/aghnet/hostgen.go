@@ -71,16 +71,16 @@ func GenerateHostname(ip net.IP) (hostname string) {
 func NewDomainNameSet(list []string) (set *stringutil.Set, err error) {
 	set = stringutil.NewSet()
 
-	for _, v := range list {
+	for i, v := range list {
 		host := strings.ToLower(strings.TrimSuffix(v, "."))
-		// TODO(a.garipov): Think about ignoring empty (".") names in
-		// the future.
+		// TODO(a.garipov): Think about ignoring empty (".") names in the
+		// future.
 		if host == "" {
 			return nil, errors.Error("host name is empty")
 		}
 
 		if set.Has(host) {
-			return nil, fmt.Errorf("duplicate host name %q", host)
+			return nil, fmt.Errorf("duplicate host name %q at index %d", host, i)
 		}
 
 		set.Add(host)

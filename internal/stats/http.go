@@ -5,6 +5,7 @@ package stats
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/AdguardTeam/AdGuardHome/internal/aghalg"
@@ -68,15 +69,15 @@ type configResp struct {
 
 // getConfigResp is the response to the GET /control/stats_info.
 type getConfigResp struct {
-	// Enabled shows if statistics are enabled.  It is an [aghalg.NullBool]
-	// to be able to tell when it's set without using pointers.
-	Enabled aghalg.NullBool `json:"enabled"`
+	// Ignored is the list of host names, which should not be counted.
+	Ignored []string `json:"ignored"`
 
 	// Interval is the statistics rotation interval in milliseconds.
 	Interval float64 `json:"interval"`
 
-	// Ignored is the list of host names, which should not be counted.
-	Ignored []string `json:"ignored"`
+	// Enabled shows if statistics are enabled.  It is an aghalg.NullBool to be
+	// able to tell when it's set without using pointers.
+	Enabled aghalg.NullBool `json:"enabled"`
 }
 
 // handleStatsInfo handles requests to the GET /control/stats_info endpoint.
@@ -90,8 +91,8 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 
 	ok := checkInterval(days)
 	if !ok || (s.enabled && days == 0) {
-		// NOTE: If interval is custom we set it to 90 days for
-		// compatibility with old API.
+		// NOTE: If interval is custom we set it to 90 days for compatibility
+		// with old API.
 		days = 90
 	}
 
@@ -102,15 +103,19 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
 
-// handleGetStatsConfig handles requests to the GET /control/stats_info endpoint.
+// handleGetStatsConfig handles requests to the GET /control/stats_info
+// endpoint.
 func (s *StatsCtx) handleGetStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	ignored := s.ignored.Values()
+	sort.Strings(ignored)
+
 	resp := getConfigResp{
 		Enabled:  aghalg.BoolToNullBool(s.enabled),
 		Interval: float64(s.limit.Milliseconds()),
-		Ignored:  s.ignored.Values(),
+		Ignored:  ignored,
 	}
 	err := aghhttp.WriteJSONResponse(w, r, resp)
 	if err != nil {
@@ -182,7 +187,7 @@ func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) 
 	if len(reqData.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(reqData.Ignored)
 		if serr != nil {
-			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
+			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: duplicate or empty host")
 
 			return
 		}

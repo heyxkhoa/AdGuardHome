@@ -218,33 +218,32 @@ type tlsConfigSettings struct {
 }
 
 type queryLogConfig struct {
+	// Ignored is the list of host names, which should not be written to log.
+	Ignored []string `yaml:"ignored"`
+
+	// Interval is the interval for query log's files rotation.
+	Interval timeutil.Duration `yaml:"interval"`
+
+	// MemSize is the number of entries kept in memory before they are flushed
+	// to disk.
+	MemSize uint32 `yaml:"size_memory"`
+
 	// Enabled defines if the query log is enabled.
 	Enabled bool `yaml:"enabled"`
 
 	// FileEnabled defines, if the query log is written to the file.
 	FileEnabled bool `yaml:"file_enabled"`
-
-	// Interval is the interval for query log's files rotation.
-	Interval timeutil.Duration `yaml:"interval"`
-
-	// MemSize is the number of entries kept in memory before they are
-	// flushed to disk.
-	MemSize uint32 `yaml:"size_memory"`
-
-	// Ignored is the list of host names, which should not be written to
-	// log.
-	Ignored []string `yaml:"ignored"`
 }
 
 type statsConfig struct {
-	// Enabled defines if the statistics are enabled.
-	Enabled bool `yaml:"enabled"`
-
-	// Interval is the time interval for flushing statistics to the disk.
-	Interval timeutil.Duration `yaml:"interval"`
-
 	// Ignored is the list of host names, which should not be counted.
 	Ignored []string `yaml:"ignored"`
+
+	// Interval is the retention interval for statistics.
+	Interval timeutil.Duration `yaml:"interval"`
+
+	// Enabled defines if the statistics are enabled.
+	Enabled bool `yaml:"enabled"`
 }
 
 // config is the global configuration structure.

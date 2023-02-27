@@ -157,11 +157,8 @@ func newQueryLog(conf Config) (l *queryLog, err error) {
 	l.conf = &Config{}
 	*l.conf = conf
 
-	if conf.RotationIvl < time.Hour {
-		return nil, errors.Error("interval: less than an hour")
-	}
-	if conf.RotationIvl > timeutil.Day*365 {
-		return nil, errors.Error("interval: more than a year")
+	if conf.RotationIvl < time.Hour || conf.RotationIvl > timeutil.Day*365 {
+		return nil, errors.Error("unsupported interval")
 	}
 
 	return l, nil
