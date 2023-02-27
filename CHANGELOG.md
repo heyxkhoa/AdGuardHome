@@ -23,15 +23,6 @@ See also the [v0.107.26 GitHub milestone][ms-v0.107.26].
 NOTE: Add new changes BELOW THIS COMMENT.
 -->
 
-### Added
-
-- Two new HTTP APIs, `PUT /control/stats/config/update` and `GET
-  control/stats/config`, which can be used to set and receive the query log
-  configuration.  See openapi/openapi.yaml for the full description.
-- Two new HTTP APIs, `PUT /control/querylog/config/update` and `GET
-  control/querylog/config`, which can be used to set and receive the statistics
-  configuration.  See openapi/openapi.yaml for the full description.
-
 ### Changed
 
 #### Configuration Changes
@@ -78,14 +69,30 @@ In this release, the schema version has changed from 16 to 17.
 - The `POST /control/querylog_config` HTTP API; use the new `PUT
   /control/querylog/config/update` API instead.
 
+### Added
+
+- Two new HTTP APIs, `PUT /control/stats/config/update` and `GET
+  control/stats/config`, which can be used to set and receive the query log
+  configuration.  See openapi/openapi.yaml for the full description.
+- Two new HTTP APIs, `PUT /control/querylog/config/update` and `GET
+  control/querylog/config`, which can be used to set and receive the statistics
+  configuration.  See openapi/openapi.yaml for the full description.
+- The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
+  This allows dropping requests based on their question types.
+
 ### Fixed
 
+- Automatic update on MIPS64 and little-endian 32-bit MIPS architectures
+  ([#5270], [#5373]).
 - Requirements to domain names in domain-specific upstream configurations have
   been relaxed to meet those from [RFC 3696][rfc3696] ([#4884]).
 - Failing service installation via script on FreeBSD ([#5431]).
 
 [#4884]: https://github.com/AdguardTeam/AdGuardHome/issues/4884
+[#5270]: https://github.com/AdguardTeam/AdGuardHome/issues/5270
+[#5373]: https://github.com/AdguardTeam/AdGuardHome/issues/5373
 [#5431]: https://github.com/AdguardTeam/AdGuardHome/issues/5431
+[#5468]: https://github.com/AdguardTeam/AdGuardHome/issues/5468
 
 [rfc3696]: https://datatracker.ietf.org/doc/html/rfc3696
 
