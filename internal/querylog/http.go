@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/AdguardTeam/golibs/log"
 	"github.com/AdguardTeam/golibs/stringutil"
 	"github.com/AdguardTeam/golibs/timeutil"
+	"golang.org/x/exp/slices"
 	"golang.org/x/net/idna"
 )
 
@@ -127,7 +127,7 @@ func (l *queryLog) handleGetQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	defer l.lock.Unlock()
 
 	ignored := l.conf.Ignored.Values()
-	sort.Strings(ignored)
+	slices.Sort(ignored)
 	_ = aghhttp.WriteJSONResponse(w, r, getConfigResp{
 		Enabled:           aghalg.BoolToNullBool(l.conf.Enabled),
 		Interval:          float64(l.conf.RotationIvl.Milliseconds()),

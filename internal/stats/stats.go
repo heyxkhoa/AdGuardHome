@@ -43,8 +43,7 @@ type Config struct {
 	// Filename is the name of the database file.
 	Filename string
 
-	// Limit is an upper limit for collecting statistics into the
-	// current unit.
+	// Limit is an upper limit for collecting statistics.
 	Limit time.Duration
 
 	// Enabled tells if the statistics are enabled.
@@ -537,6 +536,7 @@ func (s *StatsCtx) loadUnits(limit uint32) (units []*unitDB, firstID uint32) {
 	// Per-hour units.
 	units = make([]*unitDB, 0, limit)
 	firstID = curID - limit + 1
+
 	for i := firstID; i != curID; i++ {
 		u := loadUnitFromDB(tx, i)
 		if u == nil {

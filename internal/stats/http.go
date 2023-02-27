@@ -5,7 +5,6 @@ package stats
 import (
 	"encoding/json"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/AdguardTeam/AdGuardHome/internal/aghalg"
@@ -13,6 +12,7 @@ import (
 	"github.com/AdguardTeam/AdGuardHome/internal/aghnet"
 	"github.com/AdguardTeam/golibs/log"
 	"github.com/AdguardTeam/golibs/timeutil"
+	"golang.org/x/exp/slices"
 )
 
 // topAddrs is an alias for the types of the TopFoo fields of statsResponse.
@@ -103,14 +103,14 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
 
-// handleGetStatsConfig handles requests to the GET /control/stats_info
+// handleGetStatsConfig handles requests to the GET /control/stats/config
 // endpoint.
 func (s *StatsCtx) handleGetStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	ignored := s.ignored.Values()
-	sort.Strings(ignored)
+	slices.Sort(ignored)
 
 	resp := getConfigResp{
 		Enabled:  aghalg.BoolToNullBool(s.enabled),
@@ -150,8 +150,8 @@ func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.setLimitLocked(int(reqData.IntervalDays))
 }
 
-// handlePutStatsConfig handles requests to the PUT /control/stats_config
-// endpoint.
+// handlePutStatsConfig handles requests to the PUT
+// /control/stats/config/update endpoint.
 func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) {
 	reqData := getConfigResp{}
 	err := json.NewDecoder(r.Body).Decode(&reqData)
