@@ -26,6 +26,20 @@ func checkInterval(days uint32) (ok bool) {
 	return days == 0 || days == 1 || days == 7 || days == 30 || days == 90
 }
 
+// validateIvl returns an error if ivl is less than an hour or more than a
+// year.
+func validateIvl(ivl time.Duration) (err error) {
+	if ivl < time.Hour {
+		return errors.Error("less than an hour")
+	}
+
+	if ivl > timeutil.Day*365 {
+		return errors.Error("more than a year")
+	}
+
+	return nil
+}
+
 // Config is the configuration structure for the statistics collecting.
 type Config struct {
 	// UnitID is the function to generate the identifier for current unit.  If
@@ -127,8 +141,9 @@ func New(conf Config) (s *StatsCtx, err error) {
 		ignored:        conf.Ignored,
 	}
 
-	if conf.Limit < time.Hour || conf.Limit > timeutil.Day*365 {
-		return nil, errors.Error("unsupported interval")
+	err = validateIvl(conf.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported interval: %w", err)
 	}
 
 	s.limit = conf.Limit
@@ -445,7 +460,7 @@ func (s *StatsCtx) periodicFlush() {
 func (s *StatsCtx) setLimitLocked(limitDays int) {
 	if limitDays != 0 {
 		s.enabled = true
-		s.limit = time.Duration(int(timeutil.Day) * limitDays)
+		s.limit = time.Duration(limitDays) * timeutil.Day
 		log.Debug("stats: set limit: %d days", limitDays)
 
 		return

@@ -13,6 +13,11 @@
 * The `GET /control/stats_info` HTTP API; use the new `GET
   /control/stats/config` API instead.
 
+  **NOTE:** If `interval` was configured by editing configuration file or new
+  HTTP API call `PUT /control/stats/config/update` and it's not equal to
+  previous allowed enum values then it will be equal to `90` days for
+  compatibility reasons.
+
 * The `POST /control/stats_config` HTTP API; use the new `PUT
   /control/stats/config/update` API instead.
 
@@ -37,6 +42,11 @@ return a JSON object with the following format:
 
 * The `GET /control/querylog_info` HTTP API; use the new `GET
   /control/querylog/config` API instead.
+
+  **NOTE:** If `interval` was configured by editing configuration file or new
+  HTTP API call `PUT /control/querylog/config/update` and it's not equal to
+  previous allowed enum values then it will be equal to `90` days for
+  compatibility reasons.
 
 * The `POST /control/querylog_config` HTTP API; use the new `PUT
   /control/querylog/config/update` API instead.

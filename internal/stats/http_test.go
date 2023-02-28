@@ -53,7 +53,7 @@ func TestHandleStatsConfig(t *testing.T) {
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusUnprocessableEntity,
-		wantErr:  "unsupported interval\n",
+		wantErr:  "unsupported interval: less than an hour\n",
 	}, {
 		name: "big_interval",
 		body: getConfigResp{
@@ -62,7 +62,7 @@ func TestHandleStatsConfig(t *testing.T) {
 			Ignored:  []string{},
 		},
 		wantCode: http.StatusUnprocessableEntity,
-		wantErr:  "unsupported interval\n",
+		wantErr:  "unsupported interval: more than a year\n",
 	}, {
 		name: "set_ignored_ivl_1_maxIvl",
 		body: getConfigResp{
@@ -85,7 +85,7 @@ func TestHandleStatsConfig(t *testing.T) {
 			},
 		},
 		wantCode: http.StatusUnprocessableEntity,
-		wantErr:  "ignored: duplicate or empty host\n",
+		wantErr:  "ignored: duplicate host name \"ignor.ed\" at index 1\n",
 	}, {
 		name: "ignored_empty",
 		body: getConfigResp{
@@ -96,7 +96,7 @@ func TestHandleStatsConfig(t *testing.T) {
 			},
 		},
 		wantCode: http.StatusUnprocessableEntity,
-		wantErr:  "ignored: duplicate or empty host\n",
+		wantErr:  "ignored: host name is empty\n",
 	}, {
 		name: "enabled_is_null",
 		body: getConfigResp{

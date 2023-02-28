@@ -932,7 +932,7 @@ func upgradeSchema16to17(diskConf yobj) (err error) {
 
 	const field = "interval"
 
-	// Set the initial value from home.initConfig function.
+	// Set the initial value from the global configuration structure.
 	statsIvl := 1
 	statsIvlVal, ok := stats[field]
 	if ok {

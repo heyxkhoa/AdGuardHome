@@ -1,6 +1,7 @@
 package querylog
 
 import (
+	"fmt"
 	"net"
 	"path/filepath"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/AdguardTeam/AdGuardHome/internal/filtering"
 	"github.com/AdguardTeam/golibs/errors"
 	"github.com/AdguardTeam/golibs/stringutil"
-	"github.com/AdguardTeam/golibs/timeutil"
 	"github.com/miekg/dns"
 )
 
@@ -157,8 +157,9 @@ func newQueryLog(conf Config) (l *queryLog, err error) {
 	l.conf = &Config{}
 	*l.conf = conf
 
-	if conf.RotationIvl < time.Hour || conf.RotationIvl > timeutil.Day*365 {
-		return nil, errors.Error("unsupported interval")
+	err = validateIvl(conf.RotationIvl)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported interval: %w", err)
 	}
 
 	return l, nil

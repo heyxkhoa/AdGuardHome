@@ -11,7 +11,6 @@ import (
 	"github.com/AdguardTeam/AdGuardHome/internal/aghhttp"
 	"github.com/AdguardTeam/AdGuardHome/internal/aghnet"
 	"github.com/AdguardTeam/golibs/log"
-	"github.com/AdguardTeam/golibs/timeutil"
 	"golang.org/x/exp/slices"
 )
 
@@ -163,8 +162,9 @@ func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) 
 
 	ivl := time.Duration(float64(time.Millisecond) * reqData.Interval)
 
-	if ivl < time.Hour || ivl > timeutil.Day*365 {
-		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval")
+	err = validateIvl(ivl)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval: %s", err)
 
 		return
 	}
@@ -187,7 +187,7 @@ func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) 
 	if len(reqData.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(reqData.Ignored)
 		if serr != nil {
-			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: duplicate or empty host")
+			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
 
 			return
 		}

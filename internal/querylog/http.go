@@ -164,7 +164,8 @@ func (l *queryLog) handleQueryLogConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	ivl := time.Duration(float64(timeutil.Day) * newConf.Interval)
+	ivl := time.Duration(newConf.Interval) * timeutil.Day
+
 	hasIvl := !math.IsNaN(newConf.Interval)
 	if hasIvl && !checkInterval(ivl) {
 		aghhttp.Error(r, w, http.StatusBadRequest, "unsupported interval")
@@ -214,8 +215,9 @@ func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Reques
 
 	ivl := time.Duration(float64(time.Millisecond) * newConf.Interval)
 
-	if ivl < time.Hour || ivl > timeutil.Day*365 {
-		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval")
+	err = validateIvl(ivl)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval: %s", err)
 
 		return
 	}
@@ -254,7 +256,7 @@ func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	if len(newConf.Ignored) > 0 {
 		set, serr := aghnet.NewDomainNameSet(newConf.Ignored)
 		if serr != nil {
-			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: duplicate or empty host")
+			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
 
 			return
 		}
