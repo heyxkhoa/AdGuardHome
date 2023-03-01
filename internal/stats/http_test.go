@@ -41,7 +41,7 @@ func TestHandleStatsConfig(t *testing.T) {
 		body: getConfigResp{
 			Enabled:  aghalg.NBTrue,
 			Interval: float64(minIvl.Milliseconds()),
-			Ignored:  nil,
+			Ignored:  []string{},
 		},
 		wantCode: http.StatusOK,
 		wantErr:  "",

@@ -119,8 +119,7 @@ type StatsCtx struct {
 	// enabled tells if the statistics are enabled.
 	enabled bool
 
-	// limit is an upper limit for collecting statistics into the
-	// current unit.
+	// limit is an upper limit for collecting statistics.
 	limit time.Duration
 
 	// ignored is the list of host names, which should not be counted.
@@ -460,7 +459,7 @@ func (s *StatsCtx) setLimitLocked(limit time.Duration) {
 	if limit != 0 {
 		s.enabled = true
 		s.limit = limit
-		log.Debug("stats: set limit: %d days", int(limit.Hours()/24))
+		log.Debug("stats: set limit: %d days", int(limit/timeutil.Day))
 
 		return
 	}
@@ -550,7 +549,6 @@ func (s *StatsCtx) loadUnits(limit uint32) (units []*unitDB, firstID uint32) {
 	// Per-hour units.
 	units = make([]*unitDB, 0, limit)
 	firstID = curID - limit + 1
-
 	for i := firstID; i != curID; i++ {
 		u := loadUnitFromDB(tx, i)
 		if u == nil {

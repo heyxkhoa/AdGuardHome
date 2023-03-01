@@ -125,10 +125,10 @@ func (l *queryLog) handleGetQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	ignored := l.conf.Ignored.Values()
 	slices.Sort(ignored)
 	_ = aghhttp.WriteJSONResponse(w, r, getConfigResp{
-		Enabled:           aghalg.BoolToNullBool(l.conf.Enabled),
-		Interval:          float64(l.conf.RotationIvl.Milliseconds()),
-		AnonymizeClientIP: aghalg.BoolToNullBool(l.conf.AnonymizeClientIP),
 		Ignored:           ignored,
+		Interval:          float64(l.conf.RotationIvl.Milliseconds()),
+		Enabled:           aghalg.BoolToNullBool(l.conf.Enabled),
+		AnonymizeClientIP: aghalg.BoolToNullBool(l.conf.AnonymizeClientIP),
 	})
 }
 
@@ -163,7 +163,7 @@ func (l *queryLog) handleQueryLogConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	ivl := time.Duration(newConf.Interval) * timeutil.Day
+	ivl := time.Duration(float64(timeutil.Day) * newConf.Interval)
 
 	hasIvl := !math.IsNaN(newConf.Interval)
 	if hasIvl && !checkInterval(ivl) {
@@ -204,7 +204,6 @@ func (l *queryLog) handleQueryLogConfig(w http.ResponseWriter, r *http.Request) 
 // queries.
 func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Request) {
 	newConf := &getConfigResp{}
-
 	err := json.NewDecoder(r.Body).Decode(newConf)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusBadRequest, "%s", err)
@@ -212,11 +211,29 @@ func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	ivl := time.Duration(float64(time.Millisecond) * newConf.Interval)
+	set, err := aghnet.NewDomainNameSet(newConf.Ignored)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", err)
 
+		return
+	}
+
+	ivl := time.Duration(newConf.Interval) * time.Millisecond
 	err = validateIvl(ivl)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval: %s", err)
+
+		return
+	}
+
+	if newConf.Enabled == aghalg.NBNull {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "enabled is null")
+
+		return
+	}
+
+	if newConf.AnonymizeClientIP == aghalg.NBNull {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "anonymize_client_ip is null")
 
 		return
 	}
@@ -229,38 +246,16 @@ func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	// Copy data, modify it, then activate.  Other threads (readers) don't need
 	// to use this lock.
 	conf := *l.conf
-	if newConf.Enabled == aghalg.NBNull {
-		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "enabled is null")
 
-		return
-	}
-
-	conf.Enabled = newConf.Enabled == aghalg.NBTrue
-
+	conf.Ignored = set
 	conf.RotationIvl = ivl
-
-	if newConf.AnonymizeClientIP == aghalg.NBNull {
-		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "anonymize_client_ip is null")
-
-		return
-	}
+	conf.Enabled = newConf.Enabled == aghalg.NBTrue
 
 	conf.AnonymizeClientIP = newConf.AnonymizeClientIP == aghalg.NBTrue
 	if conf.AnonymizeClientIP {
 		l.anonymizer.Store(AnonymizeIP)
 	} else {
 		l.anonymizer.Store(nil)
-	}
-
-	if len(newConf.Ignored) > 0 {
-		set, serr := aghnet.NewDomainNameSet(newConf.Ignored)
-		if serr != nil {
-			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
-
-			return
-		}
-
-		conf.Ignored = set
 	}
 
 	l.conf = &conf

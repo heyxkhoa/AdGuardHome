@@ -87,8 +87,7 @@ func (s *StatsCtx) handleStatsInfo(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	days := uint32(s.limit.Hours() / 24)
-
+	days := uint32(s.limit / timeutil.Day)
 	ok := checkInterval(days)
 	if !ok || (s.enabled && days == 0) {
 		// NOTE: If interval is custom we set it to 90 days for compatibility
@@ -113,9 +112,9 @@ func (s *StatsCtx) handleGetStatsConfig(w http.ResponseWriter, r *http.Request) 
 	slices.Sort(ignored)
 
 	resp := getConfigResp{
-		Enabled:  aghalg.BoolToNullBool(s.enabled),
-		Interval: float64(s.limit.Milliseconds()),
 		Ignored:  ignored,
+		Interval: float64(s.limit.Milliseconds()),
+		Enabled:  aghalg.BoolToNullBool(s.enabled),
 	}
 	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
@@ -159,8 +158,14 @@ func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	ivl := time.Duration(float64(time.Millisecond) * reqData.Interval)
+	set, err := aghnet.NewDomainNameSet(reqData.Ignored)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", err)
 
+		return
+	}
+
+	ivl := time.Duration(reqData.Interval) * time.Millisecond
 	err = validateIvl(ivl)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "unsupported interval: %s", err)
@@ -168,31 +173,20 @@ func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	defer s.configModified()
-
 	if reqData.Enabled == aghalg.NBNull {
 		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "enabled is null")
 
 		return
 	}
 
+	defer s.configModified()
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.enabled = reqData.Enabled == aghalg.NBTrue
-
+	s.ignored = set
 	s.limit = ivl
-
-	if len(reqData.Ignored) > 0 {
-		set, serr := aghnet.NewDomainNameSet(reqData.Ignored)
-		if serr != nil {
-			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "ignored: %s", serr)
-
-			return
-		}
-
-		s.ignored = set
-	}
+	s.enabled = reqData.Enabled == aghalg.NBTrue
 }
 
 // handleStatsReset handles requests to the POST /control/stats_reset endpoint.
