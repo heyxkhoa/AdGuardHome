@@ -579,7 +579,7 @@ func TestUpgradeSchema13to14(t *testing.T) {
 			// The clients field will be added anyway.
 			"clients": yobj{
 				"persistent": yarr{},
-				"runtime_sources": &clientSourcesConf{
+				"runtime_sources": &clientSourcesConfig{
 					WHOIS:     true,
 					ARP:       true,
 					RDNS:      false,
@@ -597,7 +597,7 @@ func TestUpgradeSchema13to14(t *testing.T) {
 			"schema_version": newSchemaVer,
 			"clients": yobj{
 				"persistent": []*clientObject{testClient},
-				"runtime_sources": &clientSourcesConf{
+				"runtime_sources": &clientSourcesConfig{
 					WHOIS:     true,
 					ARP:       true,
 					RDNS:      false,
@@ -618,7 +618,7 @@ func TestUpgradeSchema13to14(t *testing.T) {
 			"schema_version": newSchemaVer,
 			"clients": yobj{
 				"persistent": []*clientObject{testClient},
-				"runtime_sources": &clientSourcesConf{
+				"runtime_sources": &clientSourcesConfig{
 					WHOIS:     true,
 					ARP:       true,
 					RDNS:      true,
@@ -749,6 +749,67 @@ func TestUpgradeSchema15to16(t *testing.T) {
 }
 
 func TestUpgradeSchema16to17(t *testing.T) {
+	const newSchemaVer = 17
+
+	defaultWantObj := yobj{
+		"dns": map[string]any{
+			"edns_client_subnet": map[string]any{
+				"enabled":    false,
+				"use_custom": false,
+				"custom_ip":  "",
+			},
+		},
+		"schema_version": newSchemaVer,
+	}
+
+	testCases := []struct {
+		in   yobj
+		want yobj
+		name string
+	}{{
+		in: yobj{
+			"dns": map[string]any{
+				"edns_client_subnet": false,
+			},
+		},
+		want: defaultWantObj,
+		name: "basic",
+	}, {
+		in: yobj{
+			"dns": map[string]any{},
+		},
+		want: defaultWantObj,
+		name: "default_values",
+	}, {
+		in: yobj{
+			"dns": map[string]any{
+				"edns_client_subnet": true,
+			},
+		},
+		want: yobj{
+			"dns": map[string]any{
+				"edns_client_subnet": map[string]any{
+					"enabled":    true,
+					"use_custom": false,
+					"custom_ip":  "",
+				},
+			},
+			"schema_version": newSchemaVer,
+		},
+		name: "is_true",
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := upgradeSchema16to17(tc.in)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.want, tc.in)
+		})
+	}
+}
+
+func TestUpgradeSchema17to18(t *testing.T) {
 	testCases := []struct {
 		ivl     any
 		want    any
@@ -771,10 +832,10 @@ func TestUpgradeSchema16to17(t *testing.T) {
 			"statistics": yobj{
 				"interval": tc.ivl,
 			},
-			"schema_version": 16,
+			"schema_version": 17,
 		}
 		t.Run(tc.name, func(t *testing.T) {
-			err := upgradeSchema16to17(conf)
+			err := upgradeSchema17to18(conf)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -785,7 +846,7 @@ func TestUpgradeSchema16to17(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, conf["schema_version"], 17)
+			require.Equal(t, conf["schema_version"], 18)
 
 			statsVal, ok := conf["statistics"]
 			require.True(t, ok)
@@ -803,13 +864,13 @@ func TestUpgradeSchema16to17(t *testing.T) {
 	}
 
 	t.Run("no_stats", func(t *testing.T) {
-		err := upgradeSchema16to17(yobj{})
+		err := upgradeSchema17to18(yobj{})
 
 		assert.NoError(t, err)
 	})
 
 	t.Run("bad_stats", func(t *testing.T) {
-		err := upgradeSchema16to17(yobj{
+		err := upgradeSchema17to18(yobj{
 			"statistics": 0,
 		})
 
@@ -821,7 +882,7 @@ func TestUpgradeSchema16to17(t *testing.T) {
 			"statistics": yobj{},
 		}
 
-		err := upgradeSchema16to17(conf)
+		err := upgradeSchema17to18(conf)
 		require.NoError(t, err)
 
 		statsVal, ok := conf["statistics"]

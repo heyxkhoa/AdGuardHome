@@ -90,6 +90,7 @@ func upgradeConfigSchema(oldVersion int, diskConf yobj) (err error) {
 		upgradeSchema14to15,
 		upgradeSchema15to16,
 		upgradeSchema16to17,
+		upgradeSchema17to18,
 	}
 
 	n := 0
@@ -793,7 +794,7 @@ func upgradeSchema13to14(diskConf yobj) (err error) {
 
 	diskConf["clients"] = yobj{
 		"persistent": clientsVal,
-		"runtime_sources": &clientSourcesConf{
+		"runtime_sources": &clientSourcesConfig{
 			WHOIS:     true,
 			ARP:       true,
 			RDNS:      rdnsSrc,
@@ -893,13 +894,13 @@ func upgradeSchema15to16(diskConf yobj) (err error) {
 		"ignored":  []any{},
 	}
 
-	k := "statistics_interval"
-	v, has := dns[k]
+	const field = "statistics_interval"
+	v, has := dns[field]
 	if has {
 		stats["enabled"] = v != 0
 		stats["interval"] = v
 	}
-	delete(dns, k)
+	delete(dns, field)
 
 	diskConf["statistics"] = stats
 
@@ -909,15 +910,52 @@ func upgradeSchema15to16(diskConf yobj) (err error) {
 // upgradeSchema16to17 performs the following changes:
 //
 //	# BEFORE:
+//	'dns':
+//	  'edns_client_subnet': false
+//
+//	# AFTER:
+//	'dns':
+//	  'edns_client_subnet':
+//	    'enabled': false
+//	    'use_custom': false
+//	    'custom_ip': ""
+func upgradeSchema16to17(diskConf yobj) (err error) {
+	log.Printf("Upgrade yaml: 16 to 17")
+	diskConf["schema_version"] = 17
+
+	dnsVal, ok := diskConf["dns"]
+	if !ok {
+		return nil
+	}
+
+	dns, ok := dnsVal.(yobj)
+	if !ok {
+		return fmt.Errorf("unexpected type of dns: %T", dnsVal)
+	}
+
+	const field = "edns_client_subnet"
+
+	dns[field] = map[string]any{
+		"enabled":    dns[field] == true,
+		"use_custom": false,
+		"custom_ip":  "",
+	}
+
+	return nil
+}
+
+// upgradeSchema17to18 performs the following changes:
+//
+//	# BEFORE:
 //	'statistics':
 //	  'interval': 1
 //
 //	# AFTER:
 //	'statistics':
 //	  'interval': 24h
-func upgradeSchema16to17(diskConf yobj) (err error) {
-	log.Printf("Upgrade yaml: 16 to 17")
-	diskConf["schema_version"] = 17
+func upgradeSchema17to18(diskConf yobj) (err error) {
+	log.Printf("Upgrade yaml: 17 to 18")
+	diskConf["schema_version"] = 18
 
 	statsVal, ok := diskConf["statistics"]
 	if !ok {

@@ -31,6 +31,9 @@ NOTE: Add new changes BELOW THIS COMMENT.
 - Two new HTTP APIs, `PUT /control/querylog/config/update` and `GET
   control/querylog/config`, which can be used to set and receive the statistics
   configuration.  See openapi/openapi.yaml for the full description.
+- The ability to set custom IP for EDNS Client Subnet by using the new
+  `dns.edns_client_subnet.use_custom` and `dns.edns_client_subnet.custom_ip`
+  fields ([#1472]).  The UI changes are coming in the upcoming releases.
 - The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
   This allows dropping requests based on their question types.
 
@@ -38,9 +41,9 @@ NOTE: Add new changes BELOW THIS COMMENT.
 
 #### Configuration Changes
 
-In this release, the schema version has changed from 16 to 17.
+In this release, the schema version has changed from 16 to 18.
 
-- Property `statistics.interval`, which in schema versions 16 and earlier used
+- Property `statistics.interval`, which in schema versions 17 and earlier used
   to be an integer number of days, is now a string with a human-readable
   duration:
 
@@ -57,7 +60,31 @@ In this release, the schema version has changed from 16 to 17.
   ```
 
   To rollback this change, convert the property back into days and change the
-  `schema_version` back to `16`.
+  `schema_version` back to `17`.
+- Property `edns_client_subnet`, which in schema versions 16 and earlier used
+  to be a part of the `dns` object, is now part of the `dns.edns_client_subnet`
+  object:
+
+  ```yaml
+  # BEFORE:
+  'dns':
+    # …
+    'edns_client_subnet': false
+
+  # AFTER:
+  'dns':
+    # …
+    'edns_client_subnet':
+      'enabled': false
+      'use_custom': false
+      'custom_ip': ''
+  ```
+
+  To rollback this change, move the value of `dns.edns_client_subnet.enabled`
+  into the `dns.edns_client_subnet`, remove the fields
+  `dns.edns_client_subnet.enabled`, `dns.edns_client_subnet.use_custom`,
+  `dns.edns_client_subnet.custom_ip`, and change the `schema_version` back to
+  `16`.
 
 ### Deprecated
 
@@ -78,17 +105,23 @@ In this release, the schema version has changed from 16 to 17.
 
 ### Fixed
 
+- Various dark theme bugs ([#5439], [#5441], [#5442], [#5515]).
 - Automatic update on MIPS64 and little-endian 32-bit MIPS architectures
   ([#5270], [#5373]).
 - Requirements to domain names in domain-specific upstream configurations have
   been relaxed to meet those from [RFC 3696][rfc3696] ([#4884]).
 - Failing service installation via script on FreeBSD ([#5431]).
 
+[#1472]: https://github.com/AdguardTeam/AdGuardHome/issues/1472
 [#4884]: https://github.com/AdguardTeam/AdGuardHome/issues/4884
 [#5270]: https://github.com/AdguardTeam/AdGuardHome/issues/5270
 [#5373]: https://github.com/AdguardTeam/AdGuardHome/issues/5373
 [#5431]: https://github.com/AdguardTeam/AdGuardHome/issues/5431
+[#5439]: https://github.com/AdguardTeam/AdGuardHome/issues/5439
+[#5441]: https://github.com/AdguardTeam/AdGuardHome/issues/5441
+[#5442]: https://github.com/AdguardTeam/AdGuardHome/issues/5442
 [#5468]: https://github.com/AdguardTeam/AdGuardHome/issues/5468
+[#5515]: https://github.com/AdguardTeam/AdGuardHome/issues/5515
 
 [rfc3696]: https://datatracker.ietf.org/doc/html/rfc3696
 
@@ -172,6 +205,7 @@ In this release, the schema version has changed from 14 to 16.
     'file_enabled': true
     'interval': '2160h'
     'size_memory': 1000
+    'ignored': []
   ```
 
   To rollback this change, rename and move properties back into the `dns`
