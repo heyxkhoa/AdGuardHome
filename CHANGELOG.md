@@ -23,6 +23,17 @@ See also the [v0.107.26 GitHub milestone][ms-v0.107.26].
 NOTE: Add new changes BELOW THIS COMMENT.
 -->
 
+### Added
+
+- Two new HTTP APIs, `PUT /control/stats/config/update` and `GET
+  control/stats/config`, which can be used to set and receive the query log
+  configuration.  See openapi/openapi.yaml for the full description.
+- Two new HTTP APIs, `PUT /control/querylog/config/update` and `GET
+  control/querylog/config`, which can be used to set and receive the statistics
+  configuration.  See openapi/openapi.yaml for the full description.
+- The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
+  This allows dropping requests based on their question types.
+
 ### Changed
 
 #### Configuration Changes
@@ -64,17 +75,6 @@ In this release, the schema version has changed from 16 to 17.
   compatibility reasons.  See openapi/openapi.yaml and `openapi/CHANGELOG.md`.
 - The `POST /control/querylog_config` HTTP API; use the new `PUT
   /control/querylog/config/update` API instead.
-
-### Added
-
-- Two new HTTP APIs, `PUT /control/stats/config/update` and `GET
-  control/stats/config`, which can be used to set and receive the query log
-  configuration.  See openapi/openapi.yaml for the full description.
-- Two new HTTP APIs, `PUT /control/querylog/config/update` and `GET
-  control/querylog/config`, which can be used to set and receive the statistics
-  configuration.  See openapi/openapi.yaml for the full description.
-- The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
-  This allows dropping requests based on their question types.
 
 ### Fixed
 
