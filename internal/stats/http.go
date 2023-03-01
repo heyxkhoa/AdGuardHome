@@ -11,6 +11,7 @@ import (
 	"github.com/AdguardTeam/AdGuardHome/internal/aghhttp"
 	"github.com/AdguardTeam/AdGuardHome/internal/aghnet"
 	"github.com/AdguardTeam/golibs/log"
+	"github.com/AdguardTeam/golibs/timeutil"
 	"golang.org/x/exp/slices"
 )
 
@@ -116,10 +117,7 @@ func (s *StatsCtx) handleGetStatsConfig(w http.ResponseWriter, r *http.Request) 
 		Interval: float64(s.limit.Milliseconds()),
 		Ignored:  ignored,
 	}
-	err := aghhttp.WriteJSONResponse(w, r, resp)
-	if err != nil {
-		log.Debug("stats: write response: %s", err)
-	}
+	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
 
 // handleStatsConfig handles requests to the POST /control/stats_config
@@ -146,11 +144,12 @@ func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.setLimitLocked(int(reqData.IntervalDays))
+	limit := time.Duration(reqData.IntervalDays) * timeutil.Day
+	s.setLimitLocked(limit)
 }
 
-// handlePutStatsConfig handles requests to the PUT
-// /control/stats/config/update endpoint.
+// handlePutStatsConfig handles requests to the PUT /control/stats/config/update
+// endpoint.
 func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) {
 	reqData := getConfigResp{}
 	err := json.NewDecoder(r.Body).Decode(&reqData)
@@ -171,14 +170,14 @@ func (s *StatsCtx) handlePutStatsConfig(w http.ResponseWriter, r *http.Request) 
 
 	defer s.configModified()
 
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if reqData.Enabled == aghalg.NBNull {
 		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "enabled is null")
 
 		return
 	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	s.enabled = reqData.Enabled == aghalg.NBTrue
 

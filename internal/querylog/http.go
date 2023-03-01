@@ -42,7 +42,7 @@ type getConfigResp struct {
 	// Ignored is the list of host names, which should not be written to log.
 	Ignored []string `json:"ignored"`
 
-	// Interval is the querylog rotation interval in milliseconds
+	// Interval is the querylog rotation interval in milliseconds.
 	Interval float64 `json:"interval"`
 
 	// Enabled shows if the querylog is enabled.  It is an aghalg.NullBool to
@@ -103,8 +103,7 @@ func (l *queryLog) handleQueryLogInfo(w http.ResponseWriter, r *http.Request) {
 
 	ivl := l.conf.RotationIvl
 
-	ok := checkInterval(ivl)
-	if !ok {
+	if !checkInterval(ivl) {
 		// NOTE: If interval is custom we set it to 90 days for compatibility
 		// with old API.
 		ivl = timeutil.Day * 90
