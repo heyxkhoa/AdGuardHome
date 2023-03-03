@@ -144,7 +144,7 @@ func (s *StatsCtx) handleStatsConfig(w http.ResponseWriter, r *http.Request) {
 	defer s.lock.Unlock()
 
 	limit := time.Duration(reqData.IntervalDays) * timeutil.Day
-	s.setLimitLocked(limit)
+	s.setLimit(limit)
 }
 
 // handlePutStatsConfig handles requests to the PUT /control/stats/config/update

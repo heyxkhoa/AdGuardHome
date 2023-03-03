@@ -452,14 +452,14 @@ func (s *StatsCtx) periodicFlush() {
 	log.Debug("periodic flushing finished")
 }
 
-// setLimitLocked sets the limit without locking.  For internal use only.
+// setLimit sets the limit.  s.lock is expected to be locked.
 //
 // TODO(s.chzhen):  Remove it when migration to the new API is over.
-func (s *StatsCtx) setLimitLocked(limit time.Duration) {
+func (s *StatsCtx) setLimit(limit time.Duration) {
 	if limit != 0 {
 		s.enabled = true
 		s.limit = limit
-		log.Debug("stats: set limit: %d days", int(limit/timeutil.Day))
+		log.Debug("stats: set limit: %d days", limit/timeutil.Day)
 
 		return
 	}
