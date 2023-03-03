@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AdguardTeam/AdGuardHome/internal/aghalg"
 	"github.com/AdguardTeam/AdGuardHome/internal/aghhttp"
 	"github.com/AdguardTeam/dnsproxy/proxy"
 	"github.com/AdguardTeam/dnsproxy/upstream"
@@ -24,25 +25,79 @@ import (
 
 // jsonDNSConfig is the JSON representation of the DNS server configuration.
 type jsonDNSConfig struct {
-	Upstreams         *[]string     `json:"upstream_dns"`
-	UpstreamsFile     *string       `json:"upstream_dns_file"`
-	Bootstraps        *[]string     `json:"bootstrap_dns"`
-	ProtectionEnabled *bool         `json:"protection_enabled"`
-	RateLimit         *uint32       `json:"ratelimit"`
-	BlockingMode      *BlockingMode `json:"blocking_mode"`
-	EDNSCSEnabled     *bool         `json:"edns_cs_enabled"`
-	DNSSECEnabled     *bool         `json:"dnssec_enabled"`
-	DisableIPv6       *bool         `json:"disable_ipv6"`
-	UpstreamMode      *string       `json:"upstream_mode"`
-	CacheSize         *uint32       `json:"cache_size"`
-	CacheMinTTL       *uint32       `json:"cache_ttl_min"`
-	CacheMaxTTL       *uint32       `json:"cache_ttl_max"`
-	CacheOptimistic   *bool         `json:"cache_optimistic"`
-	ResolveClients    *bool         `json:"resolve_clients"`
-	UsePrivateRDNS    *bool         `json:"use_private_ptr_resolvers"`
-	LocalPTRUpstreams *[]string     `json:"local_ptr_upstreams"`
-	BlockingIPv4      net.IP        `json:"blocking_ipv4"`
-	BlockingIPv6      net.IP        `json:"blocking_ipv6"`
+	// Upstreams is the list of upstream DNS servers.
+	Upstreams *[]string `json:"upstream_dns"`
+
+	// UpstreamsFile is the file containing upstream DNS servers.
+	UpstreamsFile *string `json:"upstream_dns_file"`
+
+	// Bootstraps is the list of DNS servers resolving IP addresses of the
+	// upstream DoH/DoT resolvers.
+	Bootstraps *[]string `json:"bootstrap_dns"`
+
+	// ProtectionEnabled defines if protection is enabled.
+	ProtectionEnabled *bool `json:"protection_enabled"`
+
+	// RateLimit is the number of requests per second allowed per client.
+	RateLimit *uint32 `json:"ratelimit"`
+
+	// BlockingMode defines the way blocked responses are constructed.
+	BlockingMode *BlockingMode `json:"blocking_mode"`
+
+	// EDNSCSEnabled defines if EDNS Client Subnet is enabled.
+	EDNSCSEnabled *bool `json:"edns_cs_enabled"`
+
+	// DNSSECEnabled defines if DNSSEC is enabled.
+	DNSSECEnabled *bool `json:"dnssec_enabled"`
+
+	// DisableIPv6 defines if IPv6 addresses should be dropped.
+	DisableIPv6 *bool `json:"disable_ipv6"`
+
+	// UpstreamMode defines the way DNS requests are constructed.
+	UpstreamMode *string `json:"upstream_mode"`
+
+	// CacheSize in bytes.
+	CacheSize *uint32 `json:"cache_size"`
+
+	// CacheMinTTL is custom minimum TTL for cached DNS responses.
+	CacheMinTTL *uint32 `json:"cache_ttl_min"`
+
+	// CacheMaxTTL is custom maximum TTL for cached DNS responses.
+	CacheMaxTTL *uint32 `json:"cache_ttl_max"`
+
+	// CacheOptimistic defines if expired entries should be served.
+	CacheOptimistic *bool `json:"cache_optimistic"`
+
+	// ResolveClients defines if clients IPs should be resolved into hostnames.
+	ResolveClients *bool `json:"resolve_clients"`
+
+	// UsePrivateRDNS defines if privates DNS resolvers should be used.
+	UsePrivateRDNS *bool `json:"use_private_ptr_resolvers"`
+
+	// LocalPTRUpstreams is the list of local private DNS resolvers.
+	LocalPTRUpstreams *[]string `json:"local_ptr_upstreams"`
+
+	// BlockingIPv4 is custom IPv4 address for blocked A requests.
+	BlockingIPv4 net.IP `json:"blocking_ipv4"`
+
+	// BlockingIPv6 is custom IPv6 address for blocked AAAA requests.
+	BlockingIPv6 net.IP `json:"blocking_ipv6"`
+}
+
+// getConfigResp is the JSON representation of the DNS server configuration.
+type getConfigResp struct {
+	jsonDNSConfig
+
+	// EDNSCSCustomIP is custom ip for EDNS Client Subnet.
+	EDNSCSCustomIP string `json:"edns_cs_custom_ip"`
+
+	// EDNSUseCustom defines if EDNSCSCustomIP should be used.
+	EDNSCSUseCustom aghalg.NullBool `json:"edns_cs_use_custom"`
+
+	// DefautLocalPTRUpstreams is used to pass the addresses from
+	// systemResolvers to the front-end.  It's not a pointer to the slice since
+	// there is no need to omit it while decoding from JSON.
+	DefautLocalPTRUpstreams []string `json:"default_local_ptr_upstreams,omitempty"`
 }
 
 func (s *Server) getDNSConfig() (c *jsonDNSConfig) {
@@ -97,6 +152,30 @@ func (s *Server) getDNSConfig() (c *jsonDNSConfig) {
 	}
 }
 
+// getDNSConfigResp returns DNS server configuration.
+func (s *Server) getDNSConfigResp() (c *getConfigResp) {
+	s.serverLock.RLock()
+	defer s.serverLock.RUnlock()
+
+	customIP := s.conf.EDNSClientSubnet.CustomIP
+	useCustom := aghalg.BoolToNullBool(s.conf.EDNSClientSubnet.UseCustom)
+
+	defLocalPTRUps, err := s.filterOurDNSAddrs(s.sysResolvers.Get())
+	if err != nil {
+		log.Debug("getting dns configuration: %s", err)
+	}
+
+	return &getConfigResp{
+		jsonDNSConfig:           *s.getDNSConfig(),
+		EDNSCSCustomIP:          customIP,
+		EDNSCSUseCustom:         useCustom,
+		DefautLocalPTRUpstreams: defLocalPTRUps,
+	}
+}
+
+// handleGetConfig handles requests to the GET /control/dns_info endpoint.
+//
+// Deprecated: Remove it when migration to the new API is over.
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	defLocalPTRUps, err := s.filterOurDNSAddrs(s.sysResolvers.Get())
 	if err != nil {
@@ -117,29 +196,37 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
 
-func (req *jsonDNSConfig) checkBlockingMode() (err error) {
-	if req.BlockingMode == nil {
+// handleGetDNSConfig handles requests to the GET /control/dns/config
+// endpoint.
+func (s *Server) handleGetDNSConfig(w http.ResponseWriter, r *http.Request) {
+	resp := s.getDNSConfigResp()
+
+	_ = aghhttp.WriteJSONResponse(w, r, resp)
+}
+
+func checkBlockingMode(bm *BlockingMode, ipv4, ipv6 net.IP) (err error) {
+	if bm == nil {
 		return nil
 	}
 
-	return validateBlockingMode(*req.BlockingMode, req.BlockingIPv4, req.BlockingIPv6)
+	return validateBlockingMode(*bm, ipv4, ipv6)
 }
 
-func (req *jsonDNSConfig) checkUpstreamsMode() bool {
+func checkUpstreamsMode(um *string) bool {
 	valid := []string{"", "fastest_addr", "parallel"}
 
-	return req.UpstreamMode == nil || stringutil.InSlice(valid, *req.UpstreamMode)
+	return um == nil || stringutil.InSlice(valid, *um)
 }
 
-func (req *jsonDNSConfig) checkBootstrap() (err error) {
-	if req.Bootstraps == nil {
+func checkBootstrap(bs *[]string) (err error) {
+	if bs == nil {
 		return nil
 	}
 
 	var b string
 	defer func() { err = errors.Annotate(err, "checking bootstrap %s: invalid address: %w", b) }()
 
-	for _, b = range *req.Bootstraps {
+	for _, b = range *bs {
 		if b == "" {
 			return errors.Error("empty")
 		}
@@ -153,7 +240,7 @@ func (req *jsonDNSConfig) checkBootstrap() (err error) {
 }
 
 // validate returns an error if any field of req is invalid.
-func (req *jsonDNSConfig) validate(privateNets netutil.SubnetSet) (err error) {
+func validate(req *jsonDNSConfig, privateNets netutil.SubnetSet) (err error) {
 	if req.Upstreams != nil {
 		err = ValidateUpstreams(*req.Upstreams)
 		if err != nil {
@@ -168,42 +255,45 @@ func (req *jsonDNSConfig) validate(privateNets netutil.SubnetSet) (err error) {
 		}
 	}
 
-	err = req.checkBootstrap()
+	err = checkBootstrap(req.Bootstraps)
 	if err != nil {
 		return err
 	}
 
-	err = req.checkBlockingMode()
+	err = checkBlockingMode(req.BlockingMode, req.BlockingIPv4, req.BlockingIPv6)
 	if err != nil {
 		return err
 	}
 
 	switch {
-	case !req.checkUpstreamsMode():
+	case !checkUpstreamsMode(req.UpstreamMode):
 		return errors.Error("upstream_mode: incorrect value")
-	case !req.checkCacheTTL():
+	case !checkCacheTTL(req.CacheMinTTL, req.CacheMaxTTL):
 		return errors.Error("cache_ttl_min must be less or equal than cache_ttl_max")
 	default:
 		return nil
 	}
 }
 
-func (req *jsonDNSConfig) checkCacheTTL() bool {
-	if req.CacheMinTTL == nil && req.CacheMaxTTL == nil {
+func checkCacheTTL(minTTL, maxTTL *uint32) bool {
+	if minTTL == nil && maxTTL == nil {
 		return true
 	}
 
 	var min, max uint32
-	if req.CacheMinTTL != nil {
-		min = *req.CacheMinTTL
+	if minTTL != nil {
+		min = *minTTL
 	}
-	if req.CacheMaxTTL != nil {
-		max = *req.CacheMaxTTL
+	if maxTTL != nil {
+		max = *maxTTL
 	}
 
 	return min <= max
 }
 
+// handleGetConfig handles requests to the POST /control/dns_config endpoint.
+//
+// Deprecated: Remove it when migration to the new API is over.
 func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	req := &jsonDNSConfig{}
 	err := json.NewDecoder(r.Body).Decode(req)
@@ -213,7 +303,7 @@ func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = req.validate(s.privateNets)
+	err = validate(req, s.privateNets)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusBadRequest, "%s", err)
 
@@ -231,12 +321,64 @@ func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// setConfigRestartable sets the server parameters.  shouldRestart is true if
-// the server should be restarted to apply changes.
+// handlePutDNSConfig handles requests to the PUT /control/dns/config/update
+// endpoint.
+func (s *Server) handlePutDNSConfig(w http.ResponseWriter, r *http.Request) {
+	req := &getConfigResp{}
+
+	err := json.NewDecoder(r.Body).Decode(req)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusBadRequest, "decoding request: %s", err)
+
+		return
+	}
+
+	err = validate(&req.jsonDNSConfig, s.privateNets)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "%s", err)
+
+		return
+	}
+
+	if req.EDNSCSUseCustom == aghalg.NBNull {
+		aghhttp.Error(r, w, http.StatusUnprocessableEntity, "edns_cs_use_custom is null")
+
+		return
+	}
+
+	var ip net.IP
+	if req.EDNSCSUseCustom == aghalg.NBTrue {
+		ip, err = netutil.ParseIP(req.EDNSCSCustomIP)
+		if err != nil {
+			aghhttp.Error(r, w, http.StatusUnprocessableEntity, "edns_cs_custom_ip: %s", err)
+
+			return
+		}
+	}
+
+	s.setDNSConfig(req, ip)
+	s.conf.ConfigModified()
+
+	err = s.Reconfigure(nil)
+	if err != nil {
+		aghhttp.Error(r, w, http.StatusInternalServerError, "%s", err)
+	}
+}
+
+// setConfig sets the server parameters.  shouldRestart is true if the server
+// should be restarted to apply changes.
 func (s *Server) setConfig(dc *jsonDNSConfig) (shouldRestart bool) {
 	s.serverLock.Lock()
 	defer s.serverLock.Unlock()
 
+	s.setConfigLocked(dc)
+
+	return s.setConfigRestartable(dc)
+}
+
+// setConfigLocked sets the server parameters. s.serverLock is expected to be
+// locked.
+func (s *Server) setConfigLocked(dc *jsonDNSConfig) {
 	if dc.BlockingMode != nil {
 		s.conf.BlockingMode = *dc.BlockingMode
 		if *dc.BlockingMode == BlockingModeCustomIP {
@@ -255,8 +397,22 @@ func (s *Server) setConfig(dc *jsonDNSConfig) (shouldRestart bool) {
 	setIfNotNil(&s.conf.AAAADisabled, dc.DisableIPv6)
 	setIfNotNil(&s.conf.ResolveClients, dc.ResolveClients)
 	setIfNotNil(&s.conf.UsePrivateRDNS, dc.UsePrivateRDNS)
+}
 
-	return s.setConfigRestartable(dc)
+// setDNSConfig sets the server parameters.  shouldRestart is true if the
+// server should be restarted to apply changes.
+func (s *Server) setDNSConfig(dc *getConfigResp, ip net.IP) (shouldRestart bool) {
+	s.serverLock.Lock()
+	defer s.serverLock.Unlock()
+
+	s.setConfigLocked(&dc.jsonDNSConfig)
+
+	if dc.EDNSCSUseCustom == aghalg.NBTrue {
+		s.conf.EDNSClientSubnet.CustomIP = ip.String()
+		s.conf.EDNSClientSubnet.UseCustom = true
+	}
+
+	return s.setConfigRestartable(&dc.jsonDNSConfig)
 }
 
 // setIfNotNil sets the value pointed at by currentPtr to the value pointed at
@@ -734,6 +890,9 @@ func (s *Server) registerHandlers() {
 	// See also https://github.com/AdguardTeam/AdGuardHome/issues/2628.
 	s.conf.HTTPRegister("", "/dns-query", s.handleDoH)
 	s.conf.HTTPRegister("", "/dns-query/", s.handleDoH)
+
+	s.conf.HTTPRegister(http.MethodGet, "/control/dns/config", s.handleGetDNSConfig)
+	s.conf.HTTPRegister(http.MethodPut, "/control/dns/config/update", s.handlePutDNSConfig)
 
 	webRegistered = true
 }

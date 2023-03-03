@@ -57,6 +57,7 @@
             'application/json':
               'schema':
                 '$ref': '#/components/schemas/ServerStatus'
+  # TODO!!
   '/dns_info':
     'get':
       'tags':
