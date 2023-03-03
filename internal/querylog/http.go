@@ -177,8 +177,6 @@ func (l *queryLog) handleQueryLogConfig(w http.ResponseWriter, r *http.Request) 
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	// Copy data, modify it, then activate.  Other threads (readers) don't need
-	// to use this lock.
 	conf := *l.conf
 	if newConf.Enabled != aghalg.NBNull {
 		conf.Enabled = newConf.Enabled == aghalg.NBTrue
@@ -243,8 +241,6 @@ func (l *queryLog) handlePutQueryLogConfig(w http.ResponseWriter, r *http.Reques
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	// Copy data, modify it, then activate.  Other threads (readers) don't need
-	// to use this lock.
 	conf := *l.conf
 
 	conf.Ignored = set
