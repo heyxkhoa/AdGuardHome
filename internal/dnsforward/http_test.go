@@ -182,6 +182,12 @@ func TestDNSForwardHTTP_handleSetConfig(t *testing.T) {
 		name:    "edns_cs_enabled",
 		wantSet: "",
 	}, {
+		name:    "edns_cs_use_custom",
+		wantSet: "",
+	}, {
+		name:    "edns_cs_use_custom_bad_ip",
+		wantSet: "decoding request: invalid IP address: bad.ip",
+	}, {
 		name:    "dnssec_enabled",
 		wantSet: "",
 	}, {
@@ -226,12 +232,12 @@ func TestDNSForwardHTTP_handleSetConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		caseData, ok := data[tc.name]
-		require.True(t, ok)
+		require.True(t, ok, tc.name)
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Cleanup(func() {
 				s.conf = defaultConf
-				s.conf.FilteringConfig.EDNSClientSubnet.Enabled = false
+				s.conf.FilteringConfig.EDNSClientSubnet = &EDNSClientSubnet{}
 			})
 
 			rBody := io.NopCloser(bytes.NewReader(caseData.Req))
@@ -543,5 +549,3 @@ func TestServer_handleTestUpstreaDNS(t *testing.T) {
 		assert.True(t, strings.HasSuffix(sleepyRes, "i/o timeout"))
 	})
 }
-
-// TODO!!

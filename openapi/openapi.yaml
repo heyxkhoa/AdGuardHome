@@ -57,7 +57,6 @@
             'application/json':
               'schema':
                 '$ref': '#/components/schemas/ServerStatus'
-  # TODO!!
   '/dns_info':
     'get':
       'tags':
@@ -1281,8 +1280,6 @@
           'type': 'string'
         'protection_enabled':
           'type': 'boolean'
-        'dhcp_available':
-          'type': 'boolean'
         'ratelimit':
           'type': 'integer'
         'blocking_mode':
@@ -1299,6 +1296,10 @@
           'type': 'string'
         'edns_cs_enabled':
           'type': 'boolean'
+        'edns_cs_use_custom':
+          'type': 'boolean'
+        'edns_cs_custom_ip':
+          'type': 'string'
         'disable_ipv6':
           'type': 'boolean'
         'dnssec_enabled':
