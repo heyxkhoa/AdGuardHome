@@ -16,6 +16,8 @@
   `GET /control/dns_info` method are set if AdGuard Home uses custom IP for
   EDNS Client Subnet.
 
+
+
 ## v0.107.23: API changes
 
 ### Experimental “beta” APIs removed

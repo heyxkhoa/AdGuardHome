@@ -24,7 +24,8 @@ import (
 
 // jsonDNSConfig is the JSON representation of the DNS server configuration.
 //
-// TODO(s.chzhen):  Split it into smaller pieces.
+// TODO(s.chzhen):  Split it into smaller pieces.  Use aghalg.NullBool instead
+// of *bool.
 type jsonDNSConfig struct {
 	// Upstreams is the list of upstream DNS servers.
 	Upstreams *[]string `json:"upstream_dns"`

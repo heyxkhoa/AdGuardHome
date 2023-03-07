@@ -25,9 +25,10 @@ NOTE: Add new changes BELOW THIS COMMENT.
 
 ### Added
 
-- The ability to set custom IP for EDNS Client Subnet by using the new
+- The ability to set custom IP for EDNS Client Subnet by using the DNS-server
+  configuration section on the DNS settings page in the UI or the new
   `dns.edns_client_subnet.use_custom` and `dns.edns_client_subnet.custom_ip`
-  fields ([#1472]).  The UI changes are coming in the upcoming releases.
+  fields in the configuration file([#1472]).
 - The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
   This allows dropping requests based on their question types.
 
