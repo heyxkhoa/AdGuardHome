@@ -1254,7 +1254,7 @@
           'example': 'en'
     'DNSConfig':
       'type': 'object'
-      'description': 'Query log configuration'
+      'description': 'DNS server configuration'
       'properties':
         'bootstrap_dns':
           'type': 'array'

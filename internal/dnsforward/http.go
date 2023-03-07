@@ -96,7 +96,7 @@ type jsonDNSConfig struct {
 	DefaultLocalPTRUpstreams []string `json:"default_local_ptr_upstreams,omitempty"`
 }
 
-func (s *Server) getDNSConfig() (c *jsonDNSConfig, err error) {
+func (s *Server) getDNSConfig() (c *jsonDNSConfig) {
 	s.serverLock.RLock()
 	defer s.serverLock.RUnlock()
 
@@ -132,8 +132,6 @@ func (s *Server) getDNSConfig() (c *jsonDNSConfig, err error) {
 	defLocalPTRUps, err := s.filterOurDNSAddrs(s.sysResolvers.Get())
 	if err != nil {
 		log.Debug("getting dns configuration: %s", err)
-
-		return nil, err
 	}
 
 	return &jsonDNSConfig{
@@ -159,18 +157,12 @@ func (s *Server) getDNSConfig() (c *jsonDNSConfig, err error) {
 		UsePrivateRDNS:           &usePrivateRDNS,
 		LocalPTRUpstreams:        &localPTRUpstreams,
 		DefaultLocalPTRUpstreams: defLocalPTRUps,
-	}, nil
+	}
 }
 
 // handleGetConfig handles requests to the GET /control/dns_info endpoint.
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	resp, err := s.getDNSConfig()
-	if err != nil {
-		aghhttp.Error(r, w, http.StatusBadRequest, "%s", err)
-
-		return
-	}
-
+	resp := s.getDNSConfig()
 	_ = aghhttp.WriteJSONResponse(w, r, resp)
 }
 
