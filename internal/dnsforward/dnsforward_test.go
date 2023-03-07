@@ -1031,7 +1031,6 @@ func TestRewrite(t *testing.T) {
 	for _, protect := range []bool{true, false} {
 		val := protect
 		conf := s.getDNSConfig()
-
 		conf.ProtectionEnabled = &val
 		s.setConfig(conf)
 
@@ -1192,7 +1191,6 @@ func TestPTRResponseFromHosts(t *testing.T) {
 	for _, protect := range []bool{true, false} {
 		val := protect
 		conf := s.getDNSConfig()
-
 		conf.ProtectionEnabled = &val
 		s.setConfig(conf)
 
