@@ -23,6 +23,8 @@ import (
 )
 
 // jsonDNSConfig is the JSON representation of the DNS server configuration.
+//
+// TODO(s.chzhen):  Split it into smaller pieces.
 type jsonDNSConfig struct {
 	// Upstreams is the list of upstream DNS servers.
 	Upstreams *[]string `json:"upstream_dns"`
@@ -86,7 +88,7 @@ type jsonDNSConfig struct {
 	BlockingIPv6 net.IP `json:"blocking_ipv6"`
 
 	// EDNSCSCustomIP is custom IP for EDNS Client Subnet.
-	EDNSCSCustomIP net.IP `json:"edns_cs_custom_ip"`
+	EDNSCSCustomIP netip.Addr `json:"edns_cs_custom_ip"`
 
 	// DefaultLocalPTRUpstreams is used to pass the addresses from
 	// systemResolvers to the front-end.  It's not a pointer to the slice since
@@ -107,18 +109,9 @@ func (s *Server) getDNSConfig() (c *jsonDNSConfig, err error) {
 	blockingIPv6 := s.conf.BlockingIPv6
 	ratelimit := s.conf.Ratelimit
 
-	var customIP net.IP
+	customIP := s.conf.EDNSClientSubnet.CustomIP
 	enableEDNSClientSubnet := s.conf.EDNSClientSubnet.Enabled
 	useCustom := s.conf.EDNSClientSubnet.UseCustom
-
-	if useCustom {
-		customIP, err = netutil.ParseIP(s.conf.EDNSClientSubnet.CustomIP)
-		if err != nil {
-			log.Debug("getting edns client subnet: %s", err)
-
-			return nil, err
-		}
-	}
 
 	enableDNSSEC := s.conf.EnableDNSSEC
 	aaaaDisabled := s.conf.AAAADisabled
@@ -232,11 +225,6 @@ func (req *jsonDNSConfig) validate(privateNets netutil.SubnetSet) (err error) {
 		}
 	}
 
-	err = validateEDNSCustomIP(req.EDNSCSUseCustom, req.EDNSCSCustomIP)
-	if err != nil {
-		return fmt.Errorf("validating edns client subnet: %w", err)
-	}
-
 	err = req.checkBootstrap()
 	if err != nil {
 		return err
@@ -321,7 +309,7 @@ func (s *Server) setConfig(dc *jsonDNSConfig) (shouldRestart bool) {
 	}
 
 	if dc.EDNSCSUseCustom != nil && *dc.EDNSCSUseCustom {
-		s.conf.EDNSClientSubnet.CustomIP = dc.EDNSCSCustomIP.String()
+		s.conf.EDNSClientSubnet.CustomIP = dc.EDNSCSCustomIP
 	}
 
 	setIfNotNil(&s.conf.ProtectionEnabled, dc.ProtectionEnabled)
@@ -528,15 +516,6 @@ func validateUpstream(u string, domains []string) (useDefault bool, err error) {
 	}
 
 	return false, err
-}
-
-// validateEDNSCustomIP validates parameters for EDNS Client Subnet.
-func validateEDNSCustomIP(useCustom *bool, customIP net.IP) (err error) {
-	if useCustom == nil || !*useCustom {
-		return nil
-	}
-
-	return netutil.ValidateIP(customIP)
 }
 
 // separateUpstream returns the upstream and the specified domains.  domains is

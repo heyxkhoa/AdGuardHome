@@ -186,7 +186,7 @@ func TestDNSForwardHTTP_handleSetConfig(t *testing.T) {
 		wantSet: "",
 	}, {
 		name:    "edns_cs_use_custom_bad_ip",
-		wantSet: "decoding request: invalid IP address: bad.ip",
+		wantSet: "decoding request: ParseAddr(\"bad.ip\"): unexpected character (at \"bad.ip\")",
 	}, {
 		name:    "dnssec_enabled",
 		wantSet: "",
