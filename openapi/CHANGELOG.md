@@ -4,7 +4,7 @@
 
 ## v0.108.0: API changes
 
-## v0.107.26: API changes
+## v0.107.27: API changes
 
 ### The new optional fields `"edns_cs_use_custom"` and `"edns_cs_custom_ip"` in `DNSConfig`
 

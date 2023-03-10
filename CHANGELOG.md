@@ -23,6 +23,17 @@ See also the [v0.107.27 GitHub milestone][ms-v0.107.27].
 NOTE: Add new changes BELOW THIS COMMENT.
 -->
 
+### Added
+
+- The ability to set custom IP for EDNS Client Subnet by using the DNS-server
+  configuration section on the DNS settings page in the UI ([#1472]).
+
+[#1472]: https://github.com/AdguardTeam/AdGuardHome/issues/1472
+
+<!--
+NOTE: Add new changes ABOVE THIS COMMENT.
+-->
+
 
 
 ## [v0.107.26] - 2023-03-09
@@ -36,10 +47,9 @@ See also the [v0.107.26 GitHub milestone][ms-v0.107.26].
 
 ### Added
 
-- The ability to set custom IP for EDNS Client Subnet by using the DNS-server
-  configuration section on the DNS settings page in the UI or the new
+- The ability to set custom IP for EDNS Client Subnet by using the new
   `dns.edns_client_subnet.use_custom` and `dns.edns_client_subnet.custom_ip`
-  fields in the configuration file([#1472]).
+  fields ([#1472]).  The UI changes are coming in the upcoming releases.
 - The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
   This allows dropping requests based on their question types.
 
@@ -99,10 +109,6 @@ In this release, the schema version has changed from 16 to 17.
 [go-1.19.7]:    https://groups.google.com/g/golang-announce/c/3-TpUx48iQY
 [ms-v0.107.26]: https://github.com/AdguardTeam/AdGuardHome/milestone/62?closed=1
 [rfc3696]:      https://datatracker.ietf.org/doc/html/rfc3696
-
-<!--
-NOTE: Add new changes ABOVE THIS COMMENT.
--->
 
 
 
