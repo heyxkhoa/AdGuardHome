@@ -14,31 +14,30 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AdguardTeam/golibs/errors"
 	"github.com/AdguardTeam/golibs/log"
 	"golang.org/x/exp/slices"
 )
 
 const (
-	TwoskyConf = "../../.twosky.json"
-	LocalesDir = "../../client/src/__locales"
-	BaseFile   = "en.json"
-	ProjectID  = "home"
-	SrcDir     = "../../client/src"
+	twoskyConf = "../../.twosky.json"
+	localesDir = "../../client/src/__locales"
+	baseFile   = "en.json"
+	projectID  = "home"
+	srcDir     = "../../client/src"
 
-	TwoskyURI         = "https://twosky.int.agrd.dev/api/v1"
-	TwoskyDownloadURI = "https://twosky.int.agrd.dev/api/v1/download"
-	TwoskyUploadURI   = "https://twosky.int.agrd.dev/api/v1/upload"
+	twoskyURI = "https://twosky.int.agrd.dev/api/v1"
 )
 
+// locale is a key-value pairs of translation.
 type locale map[string]string
 
+// languages is a key-value pairs of languages.
 type languages map[string]string
 
 func main() {
 	if len(os.Args) == 1 {
-		// TODO!!: usage
-		fmt.Println("usage")
-		return
+		usage()
 	}
 
 	t := readTwosky()
@@ -51,7 +50,8 @@ func main() {
 		if len(os.Args) > 2 {
 			i, err := strconv.Atoi(os.Args[2])
 			if err != nil {
-				log.Fatal(err)
+				err = errors.Annotate(err, "number of workers: %w")
+				check(err)
 			}
 
 			if i > 1 {
@@ -65,53 +65,72 @@ func main() {
 	case "upload":
 		upload()
 	default:
-		fmt.Println("usage")
+		usage()
 	}
 }
 
-func readTwosky() twosky {
-	b, err := os.ReadFile(TwoskyConf)
+// check is a simple error-checking helper for scripts.
+func check(err error) {
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
+}
+
+// usage prints usage.
+func usage() {
+	fmt.Println(`usage: go run main.go <command> [args]
+Commands:
+   count
+        Print summary
+   download [n]
+        Download translations. n is number of workers.
+   unused
+        Print unused strings
+   upload
+        Upload translations`)
+
+	os.Exit(1)
+}
+
+// readTwosky returns configuration.
+func readTwosky() twosky {
+	b, err := os.ReadFile(twoskyConf)
+	check(err)
 
 	var ts []twosky
 	err = json.Unmarshal(b, &ts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	err = errors.Annotate(err, "unmarshalling %s: %w", twoskyConf)
+	check(err)
 
 	if len(ts) == 0 {
-		log.Fatal()
+		log.Fatalf("%s is empty", twoskyConf)
 	}
 
 	return ts[0]
 }
 
-func readLocale(n string) locale {
-	b, err := os.ReadFile(n)
-	if err != nil {
-		log.Fatal(err)
-	}
+// readLocale returns locale.
+func readLocale(fn string) locale {
+	b, err := os.ReadFile(fn)
+	check(err)
 
 	var l locale
 	err = json.Unmarshal(b, &l)
-	if err != nil {
-		log.Fatal(err)
-	}
+	err = errors.Annotate(err, "unmarshalling %s: %w", fn)
+	check(err)
 
 	return l
 }
 
 // count prints summary for translations.
 func count(lns languages) {
-	basePath := filepath.Join(LocalesDir, BaseFile)
+	basePath := filepath.Join(localesDir, baseFile)
 	baseLocale := readLocale(basePath)
 
 	sum := make(map[string]int)
 
 	for ln := range lns {
-		path := filepath.Join(LocalesDir, ln+".json")
+		path := filepath.Join(localesDir, ln+".json")
 		l := readLocale(path)
 
 		if path == basePath {
@@ -124,6 +143,7 @@ func count(lns languages) {
 	printSummary(sum)
 }
 
+// printSummary to stdout.
 func printSummary(sum map[string]int) {
 	keys := make([]string, 0, len(sum))
 	for k := range sum {
@@ -131,7 +151,6 @@ func printSummary(sum map[string]int) {
 	}
 
 	slices.Sort(keys)
-
 	for _, v := range keys {
 		fmt.Printf("%s\t %d\n", v, sum[v])
 	}
@@ -139,6 +158,19 @@ func printSummary(sum map[string]int) {
 
 // download translations. w is number of workers.
 func download(lns languages, w int) {
+	uri := os.Getenv("TWOSKY_URI")
+	if uri == "" {
+		uri = twoskyURI
+	}
+
+	downloadURI, err := url.JoinPath(uri, "download")
+	check(err)
+
+	id := os.Getenv("TWOSKY_PROJECT_ID")
+	if id == "" {
+		id = projectID
+	}
+
 	urls := make(chan string)
 
 	for i := 0; i < w; i++ {
@@ -149,63 +181,54 @@ func download(lns languages, w int) {
 		v := url.Values{}
 		v.Set("format", "json")
 		v.Set("language", ln)
-		v.Set("filename", BaseFile)
-		v.Set("project", ProjectID)
+		v.Set("filename", baseFile)
+		v.Set("project", id)
 
-		urls <- TwoskyDownloadURI + "?" + v.Encode()
+		urls <- downloadURI + "?" + v.Encode()
 	}
 
 	close(urls)
 }
 
+// downloadWorker downloads translations by received urls.
 func downloadWorker(urls <-chan string) {
 	var client http.Client
 
 	for u := range urls {
 		resp, err := client.Get(u)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		fmt.Println(u)
 
 		if resp.StatusCode != http.StatusOK {
-			log.Fatal()
+			log.Fatalf("status code is not ok: %s", http.StatusText(resp.StatusCode))
 		}
 
 		url, err := url.Parse(u)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		v := url.Query()
 		locale := v.Get("language")
 
 		buf, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
-		path := filepath.Join(LocalesDir, locale+".json")
+		path := filepath.Join(localesDir, locale+".json")
 		err = os.WriteFile(path, buf, 0o664)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		fmt.Println(path)
 
 		err = resp.Body.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 	}
 }
 
 // unused prints unused strings.
 func unused() {
 	names := []string{}
-	err := filepath.Walk(SrcDir, func(path string, info os.FileInfo, err error) error {
-		if strings.HasPrefix(path, LocalesDir) {
+	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if strings.HasPrefix(path, localesDir) {
 			return nil
 		}
 
@@ -215,22 +238,24 @@ func unused() {
 
 		return nil
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	err = errors.Annotate(err, "filepath walking %s: %w", srcDir)
+	check(err)
 
 	files := []string{}
 	for _, n := range names {
 		var buf []byte
 		buf, err = os.ReadFile(n)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		files = append(files, string(buf))
 	}
 
-	basePath := filepath.Join(LocalesDir, BaseFile)
+	printUnused(files)
+}
+
+// printUnused to stdout.
+func printUnused(files []string) {
+	basePath := filepath.Join(localesDir, baseFile)
 	baseLocale := readLocale(basePath)
 
 	knownUsed := map[string]bool{
@@ -257,6 +282,7 @@ func unused() {
 		}
 	}
 
+	slices.Sort(unused)
 	for _, v := range unused {
 		fmt.Println(v)
 	}
@@ -264,40 +290,49 @@ func unused() {
 
 // upload base translation.
 func upload() {
+	uri := os.Getenv("TWOSKY_URI")
+	if uri == "" {
+		uri = twoskyURI
+	}
+
+	uploadURI, err := url.JoinPath(uri, "upload")
+	check(err)
+
+	id := os.Getenv("TWOSKY_PROJECT_ID")
+	if id == "" {
+		id = projectID
+	}
+
 	v := url.Values{}
 	v.Set("format", "json")
 	v.Set("language", "en")
-	v.Set("filename", BaseFile)
-	v.Set("project", ProjectID)
+	v.Set("filename", baseFile)
+	v.Set("project", id)
 
-	basePath := filepath.Join(LocalesDir, BaseFile)
+	basePath := filepath.Join(localesDir, baseFile)
 	b, err := os.ReadFile(basePath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
-	url := TwoskyUploadURI + "?" + v.Encode()
+	url := uploadURI + "?" + v.Encode()
 
 	var buf bytes.Buffer
 	buf.Write(b)
 
 	var client http.Client
 	resp, err := client.Post(url, "application/json", &buf)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
+
 	defer func() {
 		err = resp.Body.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal(err)
+		log.Fatalf("status code is not ok: %s", http.StatusText(resp.StatusCode))
 	}
 }
 
+// twosky contains configuration.
 type twosky struct {
 	Languages        languages `json:"languages"`
 	ProjectID        string    `json:"project_id"`
