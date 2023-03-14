@@ -5,67 +5,79 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"time"
 
+	"github.com/AdguardTeam/AdGuardHome/internal/aghio"
 	"github.com/AdguardTeam/golibs/errors"
 	"github.com/AdguardTeam/golibs/log"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
 const (
-	twoskyConf = "../../.twosky.json"
-	localesDir = "../../client/src/__locales"
-	baseFile   = "en.json"
-	projectID  = "home"
-	srcDir     = "../../client/src"
+	twoskyConfFile = "../../.twosky.json"
+	localesDir     = "../../client/src/__locales"
+	baseFile       = "en.json"
+	projectID      = "home"
+	srcDir         = "../../client/src"
+	twoskyURI      = "https://twosky.int.agrd.dev/api/v1"
 
-	twoskyURI = "https://twosky.int.agrd.dev/api/v1"
+	readLimit = 1 * 1024 * 1024
 )
 
-// locale is a key-value pairs of translation.
-type locale map[string]string
-
-// languages is a key-value pairs of languages.
+// languages is a map, where key is language code and value is display name.
 type languages map[string]string
 
 func main() {
 	if len(os.Args) == 1 {
-		usage()
+		usage("need a command")
+	}
+
+	uriStr := os.Getenv("TWOSKY_URI")
+	if uriStr == "" {
+		uriStr = twoskyURI
+	}
+
+	id := os.Getenv("TWOSKY_PROJECT_ID")
+	if id == "" {
+		id = projectID
 	}
 
 	t := readTwosky()
 
 	switch os.Args[1] {
-	case "count":
-		count(t.Languages)
+	case "summary":
+		summary(t.Languages)
 	case "download":
-		w := 1
-		if len(os.Args) > 2 {
-			i, err := strconv.Atoi(os.Args[2])
-			if err != nil {
-				err = errors.Annotate(err, "number of workers: %w")
-				check(err)
-			}
+		var w int
+		fs := flag.NewFlagSet("download", flag.ExitOnError)
+		fs.IntVar(&w, "w", 1, "number of workers")
+		fs.IntVar(&w, "workers", 1, "number of workers")
 
-			if i > 1 {
-				w = i
-			}
+		err := fs.Parse(os.Args[2:])
+		check(err)
+
+		if w < 1 {
+			w = 1
 		}
 
-		download(t.Languages, w)
+		download(uriStr, id, t.Languages, w)
 	case "unused":
 		unused()
 	case "upload":
-		upload()
+		upload(uriStr, id, t.BaseLocale)
+	case "help", "-help", "--help":
+		usage("")
 	default:
-		usage()
+		usage("unknown command")
 	}
 }
 
@@ -76,100 +88,107 @@ func check(err error) {
 	}
 }
 
-// usage prints usage.
-func usage() {
-	fmt.Println(`usage: go run main.go <command> [args]
-Commands:
-   count
-        Print summary
-   download [n]
-        Download translations. n is number of workers.
-   unused
-        Print unused strings
-   upload
-        Upload translations`)
+// mark is a simple error-printing helper for scripts.
+func mark(err error) {
+	if err != nil {
+		log.Println(err)
+	}
+}
 
-	os.Exit(1)
+// usage prints usage.  If s is not empty string print s and exit with code 1,
+// otherwise exit with code 0.
+func usage(s string) {
+	if s != "" {
+		fmt.Println(s)
+	}
+
+	fmt.Println(`Usage: go run main.go <command> [args]
+Commands:
+  help
+    	Print usage
+  summary
+    	Print summary
+  download [n]
+    	Download translations. n is number of workers.
+  unused
+    	Print unused strings
+  upload
+    	Upload translations`)
+
+	if s != "" {
+		os.Exit(1)
+	}
+
+	os.Exit(0)
 }
 
 // readTwosky returns configuration.
-func readTwosky() twosky {
-	b, err := os.ReadFile(twoskyConf)
+func readTwosky() (t twoskyConf) {
+	b, err := os.ReadFile(twoskyConfFile)
 	check(err)
 
-	var ts []twosky
+	var ts []twoskyConf
 	err = json.Unmarshal(b, &ts)
-	err = errors.Annotate(err, "unmarshalling %s: %w", twoskyConf)
+	err = errors.Annotate(err, "unmarshalling %s: %w", twoskyConfFile)
 	check(err)
 
 	if len(ts) == 0 {
-		log.Fatalf("%s is empty", twoskyConf)
+		log.Fatalf("%s is empty", twoskyConfFile)
 	}
 
 	return ts[0]
 }
 
-// readLocale returns locale.
-func readLocale(fn string) locale {
+// readLocales reads file with name fn and returns a map, where key is text
+// label and value is localization.
+func readLocales(fn string) (locales map[string]string) {
 	b, err := os.ReadFile(fn)
 	check(err)
 
-	var l locale
-	err = json.Unmarshal(b, &l)
+	locales = make(map[string]string)
+	err = json.Unmarshal(b, &locales)
 	err = errors.Annotate(err, "unmarshalling %s: %w", fn)
 	check(err)
 
-	return l
+	return locales
 }
 
-// count prints summary for translations.
-func count(lns languages) {
+// summary prints summary for translations.
+func summary(lns languages) {
 	basePath := filepath.Join(localesDir, baseFile)
-	baseLocale := readLocale(basePath)
+	baseLocale := readLocales(basePath)
+	bl := float64(len(baseLocale))
 
-	sum := make(map[string]int)
+	sum := make(map[string]float64)
 
 	for ln := range lns {
 		path := filepath.Join(localesDir, ln+".json")
-		l := readLocale(path)
+		l := readLocales(path)
 
 		if path == basePath {
 			continue
 		}
 
-		sum[ln] = len(l) * 100 / len(baseLocale)
+		sum[ln] = float64(len(l)) * 100 / bl
 	}
 
 	printSummary(sum)
 }
 
 // printSummary to stdout.
-func printSummary(sum map[string]int) {
-	keys := make([]string, 0, len(sum))
-	for k := range sum {
-		keys = append(keys, k)
-	}
-
+func printSummary(sum map[string]float64) {
+	keys := maps.Keys(sum)
 	slices.Sort(keys)
+
 	for _, v := range keys {
-		fmt.Printf("%s\t %d\n", v, sum[v])
+		fmt.Printf("%s\t %6.2f\n", v, sum[v])
 	}
 }
 
-// download translations. w is number of workers.
-func download(lns languages, w int) {
-	uri := os.Getenv("TWOSKY_URI")
-	if uri == "" {
-		uri = twoskyURI
-	}
-
-	downloadURI, err := url.JoinPath(uri, "download")
+// download translations.  w is number of workers.
+func download(uriStr, id string, lns languages, w int) {
+	downloadURI, err := url.JoinPath(uriStr, "download")
 	check(err)
-
-	id := os.Getenv("TWOSKY_PROJECT_ID")
-	if id == "" {
-		id = projectID
-	}
 
 	urls := make(chan string)
 
@@ -192,39 +211,60 @@ func download(lns languages, w int) {
 
 // downloadWorker downloads translations by received urls.
 func downloadWorker(urls <-chan string) {
-	var client http.Client
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 
 	for u := range urls {
-		resp, err := client.Get(u)
-		check(err)
-
-		fmt.Println(u)
-
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("status code is not ok: %s", http.StatusText(resp.StatusCode))
-		}
-
 		url, err := url.Parse(u)
 		check(err)
 
-		v := url.Query()
-		locale := v.Get("language")
+		lang := url.Query().Get("language")
 
-		buf, err := io.ReadAll(resp.Body)
-		check(err)
+		if lang == "" {
+			log.Fatalf("language is empty")
+		}
 
-		path := filepath.Join(localesDir, locale+".json")
+		resp, err := client.Get(u)
+		if err != nil {
+			mark(err)
+
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("url: %s; status code: %s", u, http.StatusText(resp.StatusCode))
+			mark(err)
+
+			continue
+		}
+
+		limitReader, err := aghio.LimitReader(resp.Body, readLimit)
+		if err != nil {
+			mark(err)
+
+			continue
+		}
+
+		buf, err := io.ReadAll(limitReader)
+		if err != nil {
+			mark(err)
+
+			continue
+		}
+
+		path := filepath.Join(localesDir, lang+".json")
 		err = os.WriteFile(path, buf, 0o664)
-		check(err)
-
-		fmt.Println(path)
+		mark(err)
 
 		err = resp.Body.Close()
-		check(err)
+		mark(err)
+
+		fmt.Println(path)
 	}
 }
 
-// unused prints unused strings.
+// unused prints unused text labels.
 func unused() {
 	names := []string{}
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
@@ -238,25 +278,26 @@ func unused() {
 
 		return nil
 	})
+
 	err = errors.Annotate(err, "filepath walking %s: %w", srcDir)
 	check(err)
 
-	files := []string{}
+	files := [][]byte{}
 	for _, n := range names {
 		var buf []byte
 		buf, err = os.ReadFile(n)
 		check(err)
 
-		files = append(files, string(buf))
+		files = append(files, buf)
 	}
 
 	printUnused(files)
 }
 
-// printUnused to stdout.
-func printUnused(files []string) {
+// printUnused text labels to stdout.
+func printUnused(files [][]byte) {
 	basePath := filepath.Join(localesDir, baseFile)
-	baseLocale := readLocale(basePath)
+	baseLocale := readLocales(basePath)
 
 	knownUsed := map[string]bool{
 		"blocking_mode_refused":   true,
@@ -272,11 +313,13 @@ func printUnused(files []string) {
 
 		used := false
 		for _, f := range files {
-			if strings.Contains(f, k) {
+			if bytes.Contains(f, []byte(k)) {
 				used = true
+
 				break
 			}
 		}
+
 		if !used {
 			unused = append(unused, k)
 		}
@@ -289,23 +332,18 @@ func printUnused(files []string) {
 }
 
 // upload base translation.
-func upload() {
-	uri := os.Getenv("TWOSKY_URI")
-	if uri == "" {
-		uri = twoskyURI
-	}
-
-	uploadURI, err := url.JoinPath(uri, "upload")
+func upload(uriStr, id, baseLocale string) {
+	uploadURI, err := url.JoinPath(uriStr, "upload")
 	check(err)
 
-	id := os.Getenv("TWOSKY_PROJECT_ID")
-	if id == "" {
-		id = projectID
+	lang := os.Getenv("UPLOAD_LANGUAGE")
+	if lang == "" {
+		lang = baseLocale
 	}
 
 	v := url.Values{}
 	v.Set("format", "json")
-	v.Set("language", "en")
+	v.Set("language", lang)
 	v.Set("filename", baseFile)
 	v.Set("project", id)
 
@@ -332,8 +370,8 @@ func upload() {
 	}
 }
 
-// twosky contains configuration.
-type twosky struct {
+// twoskyConf is the configuration structure for localization.
+type twoskyConf struct {
 	Languages        languages `json:"languages"`
 	ProjectID        string    `json:"project_id"`
 	BaseLocale       string    `json:"base_locale"`
