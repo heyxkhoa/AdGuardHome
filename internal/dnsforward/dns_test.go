@@ -605,3 +605,126 @@ func TestIPStringFromAddr(t *testing.T) {
 		assert.Empty(t, ipStringFromAddr(nil))
 	})
 }
+
+func TestExtractARPASubnet(t *testing.T) {
+	const (
+		ipv4Suffix  = `.in-addr.arpa`
+		ipv4RevPart = `2.1` + ipv4Suffix
+		ipv4RevGood = `4.3.` + ipv4RevPart
+
+		ipv6Suffix  = `.ip6.arpa`
+		ipv6RevPart = `4.3.2.1.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa`
+		ipv6RevGood = `f.e.d.c.0.0.0.0.0.0.0.0.0.0.0.0.` + ipv6RevPart
+	)
+
+	testIPv4 := net.IP{1, 2, 3, 4}
+	testIPv4Part := net.IP{1, 2, 0, 0}
+	testIPv6 := net.IP{
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x12, 0x34,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0xcd, 0xef,
+	}
+	testIPv6Part := net.IP{
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x12, 0x34,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+	}
+
+	testCases := []struct {
+		want   *net.IPNet
+		name   string
+		domain string
+	}{{
+		want:   nil,
+		name:   "not_an_arpa_fqdn",
+		domain: "some.domain.name.",
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv4,
+			Mask: net.CIDRMask(netutil.IPv4BitLen, netutil.IPv4BitLen),
+		},
+		name:   "full_v4",
+		domain: ipv4RevGood,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv4Part,
+			Mask: net.CIDRMask(16, netutil.IPv4BitLen),
+		},
+		name:   "half_v4",
+		domain: ipv4RevPart,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv4,
+			Mask: net.CIDRMask(netutil.IPv4BitLen, netutil.IPv4BitLen),
+		},
+		name:   "full_v4_part",
+		domain: "a." + ipv4RevGood,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv4Part,
+			Mask: net.CIDRMask(16, netutil.IPv4BitLen),
+		},
+		name:   "partial_v4_part",
+		domain: "a." + ipv4RevPart,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv4Part,
+			Mask: net.CIDRMask(16, netutil.IPv4BitLen),
+		},
+		name:   "almost_full_v4",
+		domain: "256." + ipv4RevPart,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv4Part,
+			Mask: net.CIDRMask(16, netutil.IPv4BitLen),
+		},
+		name:   "almost_full_v4_part",
+		domain: "a.256." + ipv4RevPart,
+	}, {
+		want:   nil,
+		name:   "empty_v4",
+		domain: ipv4Suffix[1:],
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv6,
+			Mask: net.CIDRMask(netutil.IPv6BitLen, netutil.IPv6BitLen),
+		},
+		name:   "full_v6",
+		domain: ipv6RevGood,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv6Part,
+			Mask: net.CIDRMask(64, netutil.IPv6BitLen),
+		},
+		name:   "half_v6",
+		domain: ipv6RevPart,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv6,
+			Mask: net.CIDRMask(netutil.IPv6BitLen, netutil.IPv6BitLen),
+		},
+		name:   "full_v6_part",
+		domain: "g." + ipv6RevGood,
+	}, {
+		want: &net.IPNet{
+			IP:   testIPv6Part,
+			Mask: net.CIDRMask(64, netutil.IPv6BitLen),
+		},
+		name:   "partial_v6_part",
+		domain: "g." + ipv6RevPart,
+	}, {
+		want:   nil,
+		name:   "empty_v6",
+		domain: "ip6.arpa",
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			subnet, err := extractARPASubnet(tc.domain)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, subnet)
+		})
+	}
+}
