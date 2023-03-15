@@ -179,11 +179,14 @@ manifest file templates, and helper scripts.
  ###  Usage
 
  *  `go run main.go help`: print usage.
- *  `go run main.go download [-workers <n>]`: download and save all
-    translations.  workers is optional flag for n number of concurrent
-    downloads.
+
+ *  `go run main.go download [-n <count>]`: download and save all translations.
+    n is optional flag where count is a number of concurrent downloads.
+
  *  `go run main.go upload`: upload the base `en` locale.
+
  *  `go run main.go summary`: show the current locales summary.
+
  *  `go run main.go unused`: show the list of unused strings.
 
 After the download you'll find the output locales in the `client/src/__locales/`

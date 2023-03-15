@@ -23,18 +23,27 @@ import (
 )
 
 const (
-	twoskyConfFile = "../../.twosky.json"
-	localesDir     = "../../client/src/__locales"
-	baseFile       = "en.json"
-	projectID      = "home"
-	srcDir         = "../../client/src"
-	twoskyURI      = "https://twosky.int.agrd.dev/api/v1"
+	twoskyConfFile   = "../../.twosky.json"
+	localesDir       = "../../client/src/__locales"
+	defaultBaseFile  = "en.json"
+	defaultProjectID = "home"
+	srcDir           = "../../client/src"
+	twoskyURI        = "https://twosky.int.agrd.dev/api/v1"
 
 	readLimit = 1 * 1024 * 1024
 )
 
+// langcode is a language code.
+type langcode string
+
 // languages is a map, where key is language code and value is display name.
-type languages map[string]string
+type languages map[langcode]string
+
+// textlabel is a text label.
+type txtlabel string
+
+// locales is a map, where key is text label and value is translation.
+type locales map[txtlabel]string
 
 func main() {
 	if len(os.Args) == 1 {
@@ -46,34 +55,38 @@ func main() {
 		uriStr = twoskyURI
 	}
 
-	id := os.Getenv("TWOSKY_PROJECT_ID")
-	if id == "" {
-		id = projectID
+	projectID := os.Getenv("TWOSKY_PROJECT_ID")
+	if projectID == "" {
+		projectID = defaultProjectID
 	}
 
-	t := readTwosky()
+	conf, err := readTwoskyConf()
+	check(err)
 
 	switch os.Args[1] {
 	case "summary":
-		summary(t.Languages)
+		err = summary(conf.Languages)
+		check(err)
 	case "download":
-		var w int
-		fs := flag.NewFlagSet("download", flag.ExitOnError)
-		fs.IntVar(&w, "w", 1, "number of workers")
-		fs.IntVar(&w, "workers", 1, "number of workers")
+		var count int
+		flagSet := flag.NewFlagSet("download", flag.ExitOnError)
+		flagSet.IntVar(&count, "n", 1, "number of concurrent downloads")
 
-		err := fs.Parse(os.Args[2:])
+		err = flagSet.Parse(os.Args[2:])
 		check(err)
 
-		if w < 1 {
-			w = 1
+		if count < 1 {
+			count = 1
 		}
 
-		download(uriStr, id, t.Languages, w)
+		err = download(uriStr, projectID, conf.Languages, count)
+		check(err)
 	case "unused":
-		unused()
+		err = unused()
+		check(err)
 	case "upload":
-		upload(uriStr, id, t.BaseLocale)
+		err = upload(uriStr, projectID, conf.BaseLangcode)
+		check(err)
 	case "help", "-help", "--help":
 		usage("")
 	default:
@@ -95,88 +108,110 @@ func mark(err error) {
 	}
 }
 
-// usage prints usage.  If s is not empty string print s and exit with code 1,
-// otherwise exit with code 0.
-func usage(s string) {
-	if s != "" {
-		fmt.Println(s)
-	}
-
-	fmt.Println(`Usage: go run main.go <command> [args]
+// usage prints usage.  If addStr is not empty print addStr and exit with code
+// 1, otherwise exit with code 0.
+func usage(addStr string) {
+	const usageStr = `Usage: go run main.go <command> [<args>]
 Commands:
   help
     	Print usage
   summary
     	Print summary
-  download [n]
-    	Download translations. n is number of workers.
+  download [-n <count>]
+		Download translations. count is a number of concurrent downloads.
   unused
     	Print unused strings
   upload
-    	Upload translations`)
+    	Upload translations`
 
-	if s != "" {
+	if addStr != "" {
+		fmt.Printf("%s\n%s\n", addStr, usageStr)
+
 		os.Exit(1)
 	}
+
+	fmt.Println(usageStr)
 
 	os.Exit(0)
 }
 
-// readTwosky returns configuration.
-func readTwosky() (t twoskyConf) {
+// readTwoskyConf returns configuration.
+func readTwoskyConf() (t twoskyConf, err error) {
 	b, err := os.ReadFile(twoskyConfFile)
-	check(err)
-
-	var ts []twoskyConf
-	err = json.Unmarshal(b, &ts)
-	err = errors.Annotate(err, "unmarshalling %s: %w", twoskyConfFile)
-	check(err)
-
-	if len(ts) == 0 {
-		log.Fatalf("%s is empty", twoskyConfFile)
+	if err != nil {
+		return twoskyConf{}, err
 	}
 
-	return ts[0]
+	var conf []twoskyConf
+	err = json.Unmarshal(b, &conf)
+	if err != nil {
+		err = errors.Annotate(err, "unmarshalling %s: %w", twoskyConfFile)
+
+		return twoskyConf{}, err
+	}
+
+	if len(conf) == 0 {
+		err = fmt.Errorf("%s is empty", twoskyConfFile)
+
+		return twoskyConf{}, err
+	}
+
+	return conf[0], nil
 }
 
 // readLocales reads file with name fn and returns a map, where key is text
 // label and value is localization.
-func readLocales(fn string) (locales map[string]string) {
+func readLocales(fn string) (loc locales, err error) {
 	b, err := os.ReadFile(fn)
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
-	locales = make(map[string]string)
-	err = json.Unmarshal(b, &locales)
-	err = errors.Annotate(err, "unmarshalling %s: %w", fn)
-	check(err)
+	loc = make(locales)
+	err = json.Unmarshal(b, &loc)
+	if err != nil {
+		err = errors.Annotate(err, "unmarshalling %s: %w", fn)
 
-	return locales
+		return nil, err
+	}
+
+	return loc, nil
 }
 
 // summary prints summary for translations.
-func summary(lns languages) {
-	basePath := filepath.Join(localesDir, baseFile)
-	baseLocale := readLocales(basePath)
-	bl := float64(len(baseLocale))
+func summary(lns languages) (err error) {
+	basePath := filepath.Join(localesDir, defaultBaseFile)
+	baseLoc, err := readLocales(basePath)
+	if err != nil {
+		return err
+	}
 
-	sum := make(map[string]float64)
+	size := float64(len(baseLoc))
+
+	sum := make(map[langcode]float64)
 
 	for ln := range lns {
-		path := filepath.Join(localesDir, ln+".json")
-		l := readLocales(path)
-
+		path := filepath.Join(localesDir, string(ln)+".json")
 		if path == basePath {
 			continue
 		}
 
-		sum[ln] = float64(len(l)) * 100 / bl
+		var loc locales
+		loc, err = readLocales(path)
+		if err != nil {
+			return err
+		}
+
+		sum[ln] = float64(len(loc)) * 100 / size
 	}
 
 	printSummary(sum)
+
+	return nil
 }
 
 // printSummary to stdout.
-func printSummary(sum map[string]float64) {
+func printSummary(sum map[langcode]float64) {
 	keys := maps.Keys(sum)
 	slices.Sort(keys)
 
@@ -185,47 +220,56 @@ func printSummary(sum map[string]float64) {
 	}
 }
 
-// download translations.  w is number of workers.
-func download(uriStr, id string, lns languages, w int) {
-	downloadURI, err := url.JoinPath(uriStr, "download")
-	check(err)
+// locURL contains language code and URL of translation.
+type locURL struct {
+	code langcode
+	url  string
+}
 
-	urls := make(chan string)
+// download translations.  w is number of workers.
+func download(uriStr, projectID string, lns languages, w int) (err error) {
+	downloadURI, err := url.JoinPath(uriStr, "download")
+	if err != nil {
+		return err
+	}
+
+	locCh := make(chan locURL)
 
 	for i := 0; i < w; i++ {
-		go downloadWorker(urls)
+		go downloadWorker(locCh)
 	}
 
 	for ln := range lns {
+		if ln == "" {
+			return errors.Error("language is empty")
+		}
+
 		v := url.Values{}
 		v.Set("format", "json")
-		v.Set("language", ln)
-		v.Set("filename", baseFile)
-		v.Set("project", id)
+		v.Set("language", string(ln))
+		v.Set("filename", defaultBaseFile)
+		v.Set("project", projectID)
 
-		urls <- downloadURI + "?" + v.Encode()
+		uri := downloadURI + "?" + v.Encode()
+
+		loc := locURL{ln, uri}
+
+		locCh <- loc
 	}
 
-	close(urls)
+	close(locCh)
+
+	return nil
 }
 
 // downloadWorker downloads translations by received urls.
-func downloadWorker(urls <-chan string) {
+func downloadWorker(locCh <-chan locURL) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
-	for u := range urls {
-		url, err := url.Parse(u)
-		check(err)
-
-		lang := url.Query().Get("language")
-
-		if lang == "" {
-			log.Fatalf("language is empty")
-		}
-
-		resp, err := client.Get(u)
+	for loc := range locCh {
+		resp, err := client.Get(loc.url)
 		if err != nil {
 			mark(err)
 
@@ -233,7 +277,7 @@ func downloadWorker(urls <-chan string) {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("url: %s; status code: %s", u, http.StatusText(resp.StatusCode))
+			err = fmt.Errorf("url: %s; status code: %s", loc.url, http.StatusText(resp.StatusCode))
 			mark(err)
 
 			continue
@@ -253,7 +297,7 @@ func downloadWorker(urls <-chan string) {
 			continue
 		}
 
-		path := filepath.Join(localesDir, lang+".json")
+		path := filepath.Join(localesDir, string(loc.code)+".json")
 		err = os.WriteFile(path, buf, 0o664)
 		mark(err)
 
@@ -265,91 +309,103 @@ func downloadWorker(urls <-chan string) {
 }
 
 // unused prints unused text labels.
-func unused() {
-	names := []string{}
-	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+func unused() (err error) {
+	fileNames := []string{}
+	basePath := filepath.Join(localesDir, defaultBaseFile)
+	baseLoc, err := readLocales(basePath)
+	if err != nil {
+		return err
+	}
+
+	err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if strings.HasPrefix(path, localesDir) {
 			return nil
 		}
 
 		if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".json") {
-			names = append(names, path)
+			fileNames = append(fileNames, path)
 		}
 
 		return nil
 	})
 
-	err = errors.Annotate(err, "filepath walking %s: %w", srcDir)
-	check(err)
-
-	files := [][]byte{}
-	for _, n := range names {
-		var buf []byte
-		buf, err = os.ReadFile(n)
-		check(err)
-
-		files = append(files, buf)
+	if err != nil {
+		return errors.Annotate(err, "filepath walking %s: %w", srcDir)
 	}
 
-	printUnused(files)
+	err = removeUnused(fileNames, baseLoc)
+	if err != nil {
+		return errors.Annotate(err, "unused: %w")
+	}
+
+	return nil
+}
+
+func removeUnused(fileNames []string, loc locales) (err error) {
+	knownUsed := []txtlabel{
+		"blocking_mode_refused",
+		"blocking_mode_nxdomain",
+		"blocking_mode_custom_ip",
+	}
+
+	for _, v := range knownUsed {
+		delete(loc, v)
+	}
+
+	for _, fn := range fileNames {
+		var buf []byte
+		buf, err = os.ReadFile(fn)
+		if err != nil {
+			return err
+		}
+
+		for k := range loc {
+			if !bytes.Contains(buf, []byte(k)) {
+				continue
+			}
+
+			delete(loc, k)
+		}
+	}
+
+	printUnused(loc)
+
+	return nil
 }
 
 // printUnused text labels to stdout.
-func printUnused(files [][]byte) {
-	basePath := filepath.Join(localesDir, baseFile)
-	baseLocale := readLocales(basePath)
+func printUnused(loc locales) {
+	keys := maps.Keys(loc)
+	slices.Sort(keys)
 
-	knownUsed := map[string]bool{
-		"blocking_mode_refused":   true,
-		"blocking_mode_nxdomain":  true,
-		"blocking_mode_custom_ip": true,
-	}
-
-	unused := []string{}
-	for k := range baseLocale {
-		if knownUsed[k] {
-			continue
-		}
-
-		used := false
-		for _, f := range files {
-			if bytes.Contains(f, []byte(k)) {
-				used = true
-
-				break
-			}
-		}
-
-		if !used {
-			unused = append(unused, k)
-		}
-	}
-
-	slices.Sort(unused)
-	for _, v := range unused {
+	for _, v := range keys {
 		fmt.Println(v)
 	}
 }
 
 // upload base translation.
-func upload(uriStr, id, baseLocale string) {
+func upload(uriStr, projectID string, baseLn langcode) (err error) {
 	uploadURI, err := url.JoinPath(uriStr, "upload")
-	check(err)
+	if err != nil {
+		return errors.Annotate(err, "upload join path: %w")
+	}
 
-	lang := os.Getenv("UPLOAD_LANGUAGE")
-	if lang == "" {
-		lang = baseLocale
+	ln := os.Getenv("UPLOAD_LANGUAGE")
+	if ln == "" {
+		ln = string(baseLn)
 	}
 
 	v := url.Values{}
 	v.Set("format", "json")
-	v.Set("language", lang)
-	v.Set("filename", baseFile)
-	v.Set("project", id)
+	v.Set("language", ln)
+	v.Set("filename", defaultBaseFile)
+	v.Set("project", projectID)
 
-	basePath := filepath.Join(localesDir, baseFile)
+	basePath := filepath.Join(localesDir, defaultBaseFile)
 	b, err := os.ReadFile(basePath)
-	check(err)
+	if err != nil {
+		return err
+	}
 
 	url := uploadURI + "?" + v.Encode()
 
@@ -358,22 +414,26 @@ func upload(uriStr, id, baseLocale string) {
 
 	var client http.Client
 	resp, err := client.Post(url, "application/json", &buf)
-	check(err)
+	if err != nil {
+		return errors.Annotate(err, "upload client post: %w")
+	}
 
 	defer func() {
 		err = resp.Body.Close()
-		check(err)
+		mark(err)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("status code is not ok: %s", http.StatusText(resp.StatusCode))
+		return fmt.Errorf("status code is not ok: %s", http.StatusText(resp.StatusCode))
 	}
+
+	return nil
 }
 
 // twoskyConf is the configuration structure for localization.
 type twoskyConf struct {
 	Languages        languages `json:"languages"`
 	ProjectID        string    `json:"project_id"`
-	BaseLocale       string    `json:"base_locale"`
+	BaseLangcode     langcode  `json:"base_locale"`
 	LocalizableFiles []string  `json:"localizable_files"`
 }
