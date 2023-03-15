@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -57,14 +58,15 @@ func (s *server) dbLoad() (err error) {
 	for i := range obj {
 		obj[i].IP = normalizeIP(obj[i].IP)
 
-		if !(len(obj[i].IP) == 4 || len(obj[i].IP) == 16) {
+		ip, ok := netip.AddrFromSlice(obj[i].IP)
+		if !ok {
 			log.Info("dhcp: invalid IP: %s", obj[i].IP)
 			continue
 		}
 
 		lease := Lease{
 			HWAddr:   obj[i].HWAddr,
-			IP:       obj[i].IP,
+			IP:       ip,
 			Hostname: obj[i].Hostname,
 			Expiry:   time.Unix(obj[i].Expiry, 0),
 		}
@@ -145,7 +147,7 @@ func (s *server) dbStore() (err error) {
 
 		lease := leaseJSON{
 			HWAddr:   l.HWAddr,
-			IP:       l.IP,
+			IP:       l.IP.AsSlice(),
 			Hostname: l.Hostname,
 			Expiry:   l.Expiry.Unix(),
 		}
@@ -162,7 +164,7 @@ func (s *server) dbStore() (err error) {
 
 			lease := leaseJSON{
 				HWAddr:   l.HWAddr,
-				IP:       l.IP,
+				IP:       l.IP.AsSlice(),
 				Hostname: l.Hostname,
 				Expiry:   l.Expiry.Unix(),
 			}

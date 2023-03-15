@@ -496,18 +496,10 @@ func (s *server) handleDHCPAddStaticLease(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if l.IP == nil {
-		aghhttp.Error(r, w, http.StatusBadRequest, "invalid IP")
-
-		return
-	}
-
 	var srv DHCPServer
-	if ip4 := l.IP.To4(); ip4 != nil {
-		l.IP = ip4
+	if l.IP.Is4() {
 		srv = s.srv4
 	} else {
-		l.IP = l.IP.To16()
 		srv = s.srv6
 	}
 
@@ -528,27 +520,14 @@ func (s *server) handleDHCPRemoveStaticLease(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if l.IP == nil {
-		aghhttp.Error(r, w, http.StatusBadRequest, "invalid IP")
-
-		return
+	var srv DHCPServer
+	if l.IP.Is4() {
+		srv = s.srv4
+	} else {
+		srv = s.srv6
 	}
 
-	ip4 := l.IP.To4()
-
-	if ip4 == nil {
-		l.IP = l.IP.To16()
-
-		err = s.srv6.RemoveStaticLease(l)
-		if err != nil {
-			aghhttp.Error(r, w, http.StatusBadRequest, "%s", err)
-		}
-
-		return
-	}
-
-	l.IP = ip4
-	err = s.srv4.RemoveStaticLease(l)
+	err = srv.RemoveStaticLease(l)
 	if err != nil {
 		aghhttp.Error(r, w, http.StatusBadRequest, "%s", err)
 

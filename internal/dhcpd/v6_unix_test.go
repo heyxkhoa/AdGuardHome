@@ -4,6 +4,7 @@ package dhcpd
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/insomniacslk/dhcp/dhcpv6"
@@ -27,7 +28,7 @@ func TestV6_AddRemove_static(t *testing.T) {
 
 	// Add static lease.
 	l := &Lease{
-		IP:     net.ParseIP("2001::1"),
+		IP:     netip.MustParseAddr("2001::1"),
 		HWAddr: net.HardwareAddr{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
 	}
 	err = s.AddStaticLease(l)
@@ -46,7 +47,7 @@ func TestV6_AddRemove_static(t *testing.T) {
 
 	// Try to remove non-existent static lease.
 	err = s.RemoveStaticLease(&Lease{
-		IP:     net.ParseIP("2001::2"),
+		IP:     netip.MustParseAddr("2001::2"),
 		HWAddr: l.HWAddr,
 	})
 	require.Error(t, err)
@@ -71,10 +72,10 @@ func TestV6_AddReplace(t *testing.T) {
 
 	// Add dynamic leases.
 	dynLeases := []*Lease{{
-		IP:     net.ParseIP("2001::1"),
+		IP:     netip.MustParseAddr("2001::1"),
 		HWAddr: net.HardwareAddr{0x11, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
 	}, {
-		IP:     net.ParseIP("2001::2"),
+		IP:     netip.MustParseAddr("2001::2"),
 		HWAddr: net.HardwareAddr{0x22, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
 	}}
 
@@ -83,10 +84,10 @@ func TestV6_AddReplace(t *testing.T) {
 	}
 
 	stLeases := []*Lease{{
-		IP:     net.ParseIP("2001::1"),
+		IP:     netip.MustParseAddr("2001::1"),
 		HWAddr: net.HardwareAddr{0x33, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
 	}, {
-		IP:     net.ParseIP("2001::3"),
+		IP:     netip.MustParseAddr("2001::3"),
 		HWAddr: net.HardwareAddr{0x22, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
 	}}
 
@@ -99,7 +100,7 @@ func TestV6_AddReplace(t *testing.T) {
 	require.Len(t, ls, 2)
 
 	for i, l := range ls {
-		assert.True(t, stLeases[i].IP.Equal(l.IP))
+		assert.True(t, stLeases[i].IP.Compare(l.IP) == 0)
 		assert.Equal(t, stLeases[i].HWAddr, l.HWAddr)
 		assert.EqualValues(t, leaseExpireStatic, l.Expiry.Unix())
 	}
@@ -126,7 +127,7 @@ func TestV6GetLease(t *testing.T) {
 	}
 
 	l := &Lease{
-		IP:     net.ParseIP("2001::1"),
+		IP:     netip.MustParseAddr("2001::1"),
 		HWAddr: net.HardwareAddr{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
 	}
 	err = s.AddStaticLease(l)
@@ -158,7 +159,8 @@ func TestV6GetLease(t *testing.T) {
 		oia = resp.Options.OneIANA()
 		oiaAddr = oia.Options.OneAddress()
 
-		assert.Equal(t, l.IP, oiaAddr.IPv6Addr)
+		ip := net.IP(l.IP.AsSlice())
+		assert.Equal(t, ip, oiaAddr.IPv6Addr)
 		assert.Equal(t, s.conf.leaseTime.Seconds(), oiaAddr.ValidLifetime.Seconds())
 	})
 
@@ -182,7 +184,8 @@ func TestV6GetLease(t *testing.T) {
 		oia = resp.Options.OneIANA()
 		oiaAddr = oia.Options.OneAddress()
 
-		assert.Equal(t, l.IP, oiaAddr.IPv6Addr)
+		ip := net.IP(l.IP.AsSlice())
+		assert.Equal(t, ip, oiaAddr.IPv6Addr)
 		assert.Equal(t, s.conf.leaseTime.Seconds(), oiaAddr.ValidLifetime.Seconds())
 	})
 

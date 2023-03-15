@@ -240,14 +240,13 @@ func (s *Server) onDHCPLeaseChanged(flags int) {
 		lowhost := strings.ToLower(l.Hostname + "." + s.localDomainSuffix)
 
 		// Assume that we only process IPv4 now.
-		//
-		// TODO(a.garipov):  Remove once we switch to netip.Addr more fully.
-		ip, err := netutil.IPToAddr(l.IP, netutil.AddrFamilyIPv4)
-		if err != nil {
-			log.Debug("dnsforward: skipping invalid ip %v from dhcp: %s", l.IP, err)
+		if !l.IP.Is4() {
+			log.Debug("dnsforward: skipping invalid ip from dhcp: bad ipv4 net.IP %v", l.IP)
 
 			continue
 		}
+
+		ip := l.IP
 
 		ipToHost[ip] = lowhost
 		hostToIP[lowhost] = ip
