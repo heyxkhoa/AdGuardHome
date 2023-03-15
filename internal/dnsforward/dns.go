@@ -444,52 +444,61 @@ func (s *Server) processDHCPHosts(dctx *dnsContext) (rc resultCode) {
 }
 
 // extractARPASubnet tries to convert a reversed ARPA address being a part of
-// domain to an IP network.  arpa can be domain name or an FQDN.
+// domain to an IP network.  domain must be an FQDN.
 //
 // TODO(e.burkov):  Move to golibs.
 func extractARPASubnet(domain string) (subnet *net.IPNet, err error) {
 	const (
-		arpaSuffix = ".arpa"
-		v4Suffix   = ".in-addr"
-		v6Suffix   = ".ip6"
+		arpaSuffix = "arpa."
+		v4Suffix   = "in-addr." + arpaSuffix
+		v6Suffix   = "ip6." + arpaSuffix
 	)
 
 	domain = strings.ToLower(domain)
-	domain = strings.TrimSuffix(domain, ".")
-	if !strings.HasSuffix(domain, arpaSuffix) {
-		return nil, nil
-	}
 
-	leftmostIdx := len(domain) - len(arpaSuffix)
+	// leftmostIdx is the index of the leftmost byte pertaining to the address
+	// part of domain.
+	leftmostIdx := len(domain)
 
-	labelsNum := 0
-	base := 0
-	bitSize := 0
+	labelsLeft := 0
+	var isAddrLabel func(left, right int) (ok bool)
+
 	switch head := domain[:leftmostIdx]; {
 	case strings.HasSuffix(head, v4Suffix):
-		leftmostIdx -= len(v4Suffix)
-		labelsNum = net.IPv4len
-		base = 10
-		bitSize = 8
+		leftmostIdx -= len(v4Suffix) + 1
+		labelsLeft = net.IPv4len
+		isAddrLabel = func(left, right int) (ok bool) {
+			_, parseErr := strconv.ParseUint(domain[left:right], 10, 8)
+
+			return parseErr == nil
+		}
 	case strings.HasSuffix(head, v6Suffix):
-		leftmostIdx -= len(v6Suffix)
+		leftmostIdx -= len(v6Suffix) + 1
 		// Reversed IPv6 consists of nibbles, which is a half of byte.
-		labelsNum = net.IPv6len * 2
-		base = 16
-		bitSize = 4
+		labelsLeft = net.IPv6len * 2
+		isAddrLabel = func(left, right int) (ok bool) {
+			if right-left == 1 {
+				nibble := domain[left]
+				ok = (nibble >= '0' && nibble <= '9') || (nibble >= 'a' && nibble <= 'f')
+			}
+
+			return ok
+		}
 	default:
-		return nil, nil
+		return nil, &netutil.AddrError{
+			Err:  netutil.ErrNotAReversedSubnet,
+			Kind: netutil.AddrKindARPA,
+			Addr: domain,
+		}
 	}
 
-	for labelsNum > 0 && leftmostIdx > 0 {
+	for ; labelsLeft > 0 && leftmostIdx > 0; labelsLeft-- {
 		idx := strings.LastIndexByte(domain[:leftmostIdx], '.')
-		_, parseErr := strconv.ParseUint(domain[idx+1:leftmostIdx], base, bitSize)
-		if parseErr != nil {
+		if !isAddrLabel(idx+1, leftmostIdx) {
 			break
 		}
 
 		leftmostIdx = idx
-		labelsNum--
 	}
 	leftmostIdx += 1
 
@@ -509,13 +518,15 @@ func (s *Server) processRestrictLocal(dctx *dnsContext) (rc resultCode) {
 
 	subnet, err := extractARPASubnet(q.Name)
 	if err != nil {
+		if errors.Is(err, netutil.ErrNotAReversedSubnet) {
+			log.Debug("dnsforward: request is not for arpa domain")
+
+			return resultCodeSuccess
+		}
+
 		log.Debug("dnsforward: parsing reversed addr: %s", err)
 
 		return resultCodeError
-	} else if subnet == nil {
-		log.Debug("dnsforward: request is not for arpa domain")
-
-		return resultCodeSuccess
 	}
 
 	// Restrict an access to local addresses for external clients.  We also
