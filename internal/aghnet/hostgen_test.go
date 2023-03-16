@@ -25,16 +25,28 @@ func TestGenerateHostName(t *testing.T) {
 			name: "4to6",
 			want: "1-2-3-4",
 			ip:   netip.MustParseAddr("::ffff:1.2.3.4"),
-		}, {
-			name: "invalid",
-			want: "invalid IP",
-			ip:   netip.Addr{},
 		}}
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				hostname := GenerateHostname(tc.ip)
 				assert.Equal(t, tc.want, hostname)
+			})
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		testCases := []struct {
+			name string
+			ip   netip.Addr
+		}{{
+			name: "nil",
+			ip:   netip.Addr{},
+		}}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				assert.Panics(t, func() { GenerateHostname(tc.ip) })
 			})
 		}
 	})

@@ -873,3 +873,60 @@ func TestV4Server_Send(t *testing.T) {
 		assert.True(t, resp.IsBroadcast())
 	})
 }
+
+func TestV4Server_FindMACbyIP(t *testing.T) {
+	const (
+		staticName  = "static-client"
+		anotherName = "another-client"
+	)
+
+	staticIP := netip.MustParseAddr("192.168.10.10")
+	staticMAC := net.HardwareAddr{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}
+
+	anotherIP := netip.MustParseAddr("192.168.100.100")
+	anotherMAC := net.HardwareAddr{0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB}
+
+	s := &v4Server{
+		leases: []*Lease{{
+			Expiry:   time.Unix(leaseExpireStatic, 0),
+			Hostname: staticName,
+			HWAddr:   staticMAC,
+			IP:       staticIP,
+		}, {
+			Expiry:   time.Unix(10, 0),
+			Hostname: anotherName,
+			HWAddr:   anotherMAC,
+			IP:       anotherIP,
+		}},
+	}
+
+	testCases := []struct {
+		want net.HardwareAddr
+		ip   netip.Addr
+		name string
+	}{{
+		name: "basic",
+		ip:   staticIP,
+		want: staticMAC,
+	}, {
+		name: "not_found",
+		ip:   netip.MustParseAddr("1.2.3.4"),
+		want: nil,
+	}, {
+		name: "expired",
+		ip:   anotherIP,
+		want: nil,
+	}, {
+		name: "v6",
+		ip:   netip.MustParseAddr("ffff::1"),
+		want: nil,
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mac := s.FindMACbyIP(tc.ip)
+
+			require.Equal(t, tc.want, mac)
+		})
+	}
+}

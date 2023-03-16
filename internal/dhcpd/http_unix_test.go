@@ -17,15 +17,10 @@ import (
 )
 
 func TestServer_handleDHCPStatus(t *testing.T) {
-	const (
-		staticName  = "static-client"
-		anotherName = "another-client"
-	)
+	const staticName = "static-client"
 
 	staticIP := netip.MustParseAddr("192.168.10.10")
-	// anotherIP := DefaultRangeStart
 	staticMAC := net.HardwareAddr{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}
-	// anotherMAC := net.HardwareAddr{0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB}
 
 	conf4 := defaultV4ServerConf()
 	conf4.LeaseDuration = 86400
@@ -47,7 +42,7 @@ func TestServer_handleDHCPStatus(t *testing.T) {
 		Enabled:      true,
 	}
 
-	wantLease := &Lease{
+	wantLease := Lease{
 		Expiry:   time.Unix(leaseExpireStatic, 0),
 		Hostname: staticName,
 		HWAddr:   staticMAC,
@@ -97,7 +92,7 @@ func TestServer_handleDHCPStatus(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		wantConf := wantConf
-		wantConf.StaticLeases = []*Lease{wantLease}
+		wantConf.StaticLeases = []*Lease{&wantLease}
 
 		err = json.NewEncoder(b).Encode(&wantConf)
 		require.NoError(t, err)
@@ -106,6 +101,27 @@ func TestServer_handleDHCPStatus(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		assert.JSONEq(t, b.String(), w.Body.String())
+	})
+
+	t.Run("add_invalid_lease", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		b := &bytes.Buffer{}
+
+		lease := wantLease
+		lease.IP = netip.Addr{}
+
+		err = json.NewEncoder(b).Encode(&lease)
+		require.NoError(t, err)
+
+		var r *http.Request
+		r, err = http.NewRequest(http.MethodPost, "", b)
+		require.NoError(t, err)
+
+		s.handleDHCPAddStaticLease(w, r)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		assert.Equal(t, "invalid IP\n", w.Body.String())
 	})
 
 	t.Run("remove_static_lease", func(t *testing.T) {

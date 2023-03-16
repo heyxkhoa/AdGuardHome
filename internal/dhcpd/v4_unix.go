@@ -1033,8 +1033,7 @@ func (s *v4Server) handle(req, resp *dhcpv4.DHCPv4) int {
 	}
 
 	if l != nil {
-		ip := net.IP(l.IP.AsSlice())
-		resp.YourIPAddr = slices.Clone(ip)
+		resp.YourIPAddr = net.IP(l.IP.AsSlice())
 	}
 
 	s.updateOptions(req, resp)

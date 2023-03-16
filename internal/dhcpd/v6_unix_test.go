@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/iana"
@@ -308,6 +309,75 @@ func TestIP6InRange(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.ip.String(), func(t *testing.T) {
 			assert.Equal(t, tc.want, ip6InRange(start, tc.ip))
+		})
+	}
+}
+
+func TestV6_FindMACbyIP(t *testing.T) {
+	const (
+		staticName  = "static-client"
+		anotherName = "another-client"
+	)
+
+	staticIP := netip.MustParseAddr("2001::1")
+	staticMAC := net.HardwareAddr{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}
+
+	anotherIP := netip.MustParseAddr("2001::100")
+	anotherMAC := net.HardwareAddr{0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB}
+
+	s := &v6Server{
+		leases: []*Lease{{
+			Expiry:   time.Unix(leaseExpireStatic, 0),
+			Hostname: staticName,
+			HWAddr:   staticMAC,
+			IP:       staticIP,
+		}, {
+			Expiry:   time.Unix(10, 0),
+			Hostname: anotherName,
+			HWAddr:   anotherMAC,
+			IP:       anotherIP,
+		}},
+	}
+
+	s.leases = []*Lease{{
+		Expiry:   time.Unix(leaseExpireStatic, 0),
+		Hostname: staticName,
+		HWAddr:   staticMAC,
+		IP:       staticIP,
+	}, {
+		Expiry:   time.Unix(10, 0),
+		Hostname: anotherName,
+		HWAddr:   anotherMAC,
+		IP:       anotherIP,
+	}}
+
+	testCases := []struct {
+		want net.HardwareAddr
+		ip   netip.Addr
+		name string
+	}{{
+		name: "basic",
+		ip:   staticIP,
+		want: staticMAC,
+	}, {
+		name: "not_found",
+		ip:   netip.MustParseAddr("ffff::1"),
+		want: nil,
+	}, {
+		name: "expired",
+		ip:   anotherIP,
+		want: nil,
+	}, {
+		name: "v4",
+		ip:   netip.MustParseAddr("1.2.3.4"),
+		want: nil,
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mac := s.FindMACbyIP(tc.ip)
+
+			require.Equal(t, tc.want, mac)
 		})
 	}
 }

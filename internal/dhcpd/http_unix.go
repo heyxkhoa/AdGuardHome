@@ -496,6 +496,12 @@ func (s *server) handleDHCPAddStaticLease(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if !l.IP.IsValid() {
+		aghhttp.Error(r, w, http.StatusBadRequest, "invalid IP")
+
+		return
+	}
+
 	var srv DHCPServer
 	if l.IP.Is4() {
 		srv = s.srv4

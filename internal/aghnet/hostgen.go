@@ -16,16 +16,15 @@ import (
 //
 // ip must be either an IPv4 or an IPv6.
 func GenerateHostname(ip netip.Addr) (hostname string) {
-	if ip.Is4() {
-		hostname = ip.String()
-
-		return strings.Replace(hostname, ".", "-", -1)
+	if !ip.IsValid() {
+		// TODO(s.chzhen):  Get rid of it.
+		panic("aghnet generate hostname: invalid ip")
 	}
 
-	if ip.Is4In6() {
-		b := ip.As4()
-		addr := netip.AddrFrom4(b)
-		hostname = addr.String()
+	ip = ip.Unmap()
+
+	if ip.Is4() {
+		hostname = ip.String()
 
 		return strings.Replace(hostname, ".", "-", -1)
 	}
