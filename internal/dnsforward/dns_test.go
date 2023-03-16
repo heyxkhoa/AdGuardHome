@@ -608,34 +608,34 @@ func TestIPStringFromAddr(t *testing.T) {
 
 func TestExtractARPASubnet(t *testing.T) {
 	const (
-		ipv4Suffix  = `.in-addr.arpa.`
-		ipv4RevPart = `2.1` + ipv4Suffix
-		ipv4RevGood = `4.3.` + ipv4RevPart
+		v4Suf   = `.in-addr.arpa.`
+		v4Part  = `2.1` + v4Suf
+		v4Whole = `4.3.` + v4Part
 
-		ipv6Suffix  = `.ip6.arpa.`
-		ipv6RevPart = `4.3.2.1.0.0.0.0.0.0.0.0.0.0.0.0` + ipv6Suffix
-		ipv6RevGood = `f.e.d.c.0.0.0.0.0.0.0.0.0.0.0.0.` + ipv6RevPart
+		v6Suf   = `.ip6.arpa.`
+		v6Part  = `4.3.2.1.0.0.0.0.0.0.0.0.0.0.0.0` + v6Suf
+		v6Whole = `f.e.d.c.0.0.0.0.0.0.0.0.0.0.0.0.` + v6Part
 	)
 
-	testIPv4 := net.IP{1, 2, 3, 4}
-	testIPv4Part := net.IP{1, 2, 0, 0}
-	v4Mask := net.CIDRMask(netutil.IPv4BitLen, netutil.IPv4BitLen)
-	v4HalfMask := net.CIDRMask(netutil.IPv4BitLen/2, netutil.IPv4BitLen)
+	ipv4 := net.IP{1, 2, 3, 4}
+	ipv4Part := net.IP{1, 2, 0, 0}
+	ipv4Mask := net.CIDRMask(netutil.IPv4BitLen, netutil.IPv4BitLen)
+	ipv4MaskPart := net.CIDRMask(netutil.IPv4BitLen/2, netutil.IPv4BitLen)
 
-	testIPv6 := net.IP{
+	ipv6 := net.IP{
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x12, 0x34,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0xcd, 0xef,
 	}
-	testIPv6Part := net.IP{
+	ipv6Part := net.IP{
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x12, 0x34,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 	}
-	v6Mask := net.CIDRMask(netutil.IPv6BitLen, netutil.IPv6BitLen)
-	v6HalfMask := net.CIDRMask(netutil.IPv6BitLen/2, netutil.IPv6BitLen)
+	ipv6Mask := net.CIDRMask(netutil.IPv6BitLen, netutil.IPv6BitLen)
+	ipv6MaskPart := net.CIDRMask(netutil.IPv6BitLen/2, netutil.IPv6BitLen)
 
 	testCases := []struct {
 		want    *net.IPNet
@@ -655,85 +655,85 @@ func TestExtractARPASubnet(t *testing.T) {
 		wantErr: `bad domain name "abc.123": ` +
 			`bad top-level domain name label "123": all octets are numeric`,
 	}, {
-		want:    &net.IPNet{IP: testIPv4, Mask: v4Mask},
+		want:    &net.IPNet{IP: ipv4, Mask: ipv4Mask},
 		name:    "whole_v4",
-		domain:  ipv4RevGood,
+		domain:  v4Whole,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv4Part, Mask: v4HalfMask},
+		want:    &net.IPNet{IP: ipv4Part, Mask: ipv4MaskPart},
 		name:    "partial_v4",
-		domain:  ipv4RevPart,
+		domain:  v4Part,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv4, Mask: v4Mask},
+		want:    &net.IPNet{IP: ipv4, Mask: ipv4Mask},
 		name:    "whole_v4_within_domain",
-		domain:  "a." + ipv4RevGood,
+		domain:  "a." + v4Whole,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv4, Mask: v4Mask},
+		want:    &net.IPNet{IP: ipv4, Mask: ipv4Mask},
 		name:    "whole_v4_additional_label",
-		domain:  "5." + ipv4RevGood,
+		domain:  "5." + v4Whole,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv4Part, Mask: v4HalfMask},
+		want:    &net.IPNet{IP: ipv4Part, Mask: ipv4MaskPart},
 		name:    "partial_v4_within_domain",
-		domain:  "a." + ipv4RevPart,
+		domain:  "a." + v4Part,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv4Part, Mask: v4HalfMask},
+		want:    &net.IPNet{IP: ipv4Part, Mask: ipv4MaskPart},
 		name:    "overflow_v4",
-		domain:  "256." + ipv4RevPart,
+		domain:  "256." + v4Part,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv4Part, Mask: v4HalfMask},
+		want:    &net.IPNet{IP: ipv4Part, Mask: ipv4MaskPart},
 		name:    "overflow_v4_within_domain",
-		domain:  "a.256." + ipv4RevPart,
+		domain:  "a.256." + v4Part,
 		wantErr: "",
 	}, {
 		want:   nil,
 		name:   "empty_v4",
-		domain: ipv4Suffix[1:],
+		domain: v4Suf[1:],
 		wantErr: `bad arpa domain name "in-addr.arpa": ` +
 			`not a reversed ip network`,
 	}, {
 		want:   nil,
 		name:   "empty_v4_within_domain",
-		domain: "a" + ipv4Suffix,
+		domain: "a" + v4Suf,
 		wantErr: `bad arpa domain name "in-addr.arpa": ` +
 			`not a reversed ip network`,
 	}, {
-		want:    &net.IPNet{IP: testIPv6, Mask: v6Mask},
+		want:    &net.IPNet{IP: ipv6, Mask: ipv6Mask},
 		name:    "whole_v6",
-		domain:  ipv6RevGood,
+		domain:  v6Whole,
 		wantErr: "",
 	}, {
-		want:   &net.IPNet{IP: testIPv6Part, Mask: v6HalfMask},
+		want:   &net.IPNet{IP: ipv6Part, Mask: ipv6MaskPart},
 		name:   "partial_v6",
-		domain: ipv6RevPart,
+		domain: v6Part,
 	}, {
-		want:    &net.IPNet{IP: testIPv6, Mask: v6Mask},
+		want:    &net.IPNet{IP: ipv6, Mask: ipv6Mask},
 		name:    "whole_v6_within_domain",
-		domain:  "g." + ipv6RevGood,
+		domain:  "g." + v6Whole,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv6, Mask: v6Mask},
+		want:    &net.IPNet{IP: ipv6, Mask: ipv6Mask},
 		name:    "whole_v6_additional_label",
-		domain:  "1." + ipv6RevGood,
+		domain:  "1." + v6Whole,
 		wantErr: "",
 	}, {
-		want:    &net.IPNet{IP: testIPv6Part, Mask: v6HalfMask},
+		want:    &net.IPNet{IP: ipv6Part, Mask: ipv6MaskPart},
 		name:    "partial_v6_within_domain",
-		domain:  "label." + ipv6RevPart,
+		domain:  "label." + v6Part,
 		wantErr: "",
 	}, {
 		want:    nil,
 		name:    "empty_v6",
-		domain:  ipv6Suffix[1:],
+		domain:  v6Suf[1:],
 		wantErr: `bad arpa domain name "ip6.arpa": not a reversed ip network`,
 	}, {
 		want:    nil,
 		name:    "empty_v6_within_domain",
-		domain:  "g" + ipv6Suffix,
+		domain:  "g" + v6Suf,
 		wantErr: `bad arpa domain name "ip6.arpa": not a reversed ip network`,
 	}}
 
