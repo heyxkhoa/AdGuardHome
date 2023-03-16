@@ -608,12 +608,12 @@ func TestIPStringFromAddr(t *testing.T) {
 
 func TestExtractARPASubnet(t *testing.T) {
 	const (
-		v4Suf   = `.in-addr.arpa.`
-		v4Part  = `2.1` + v4Suf
+		v4Suf   = `in-addr.arpa.`
+		v4Part  = `2.1.` + v4Suf
 		v4Whole = `4.3.` + v4Part
 
-		v6Suf   = `.ip6.arpa.`
-		v6Part  = `4.3.2.1.0.0.0.0.0.0.0.0.0.0.0.0` + v6Suf
+		v6Suf   = `ip6.arpa.`
+		v6Part  = `4.3.2.1.0.0.0.0.0.0.0.0.0.0.0.0.` + v6Suf
 		v6Whole = `f.e.d.c.0.0.0.0.0.0.0.0.0.0.0.0.` + v6Part
 	)
 
@@ -692,13 +692,13 @@ func TestExtractARPASubnet(t *testing.T) {
 	}, {
 		want:   nil,
 		name:   "empty_v4",
-		domain: v4Suf[1:],
+		domain: v4Suf,
 		wantErr: `bad arpa domain name "in-addr.arpa": ` +
 			`not a reversed ip network`,
 	}, {
 		want:   nil,
 		name:   "empty_v4_within_domain",
-		domain: "a" + v4Suf,
+		domain: "a." + v4Suf,
 		wantErr: `bad arpa domain name "in-addr.arpa": ` +
 			`not a reversed ip network`,
 	}, {
@@ -728,12 +728,12 @@ func TestExtractARPASubnet(t *testing.T) {
 	}, {
 		want:    nil,
 		name:    "empty_v6",
-		domain:  v6Suf[1:],
+		domain:  v6Suf,
 		wantErr: `bad arpa domain name "ip6.arpa": not a reversed ip network`,
 	}, {
 		want:    nil,
 		name:    "empty_v6_within_domain",
-		domain:  "g" + v6Suf,
+		domain:  "g." + v6Suf,
 		wantErr: `bad arpa domain name "ip6.arpa": not a reversed ip network`,
 	}}
 
