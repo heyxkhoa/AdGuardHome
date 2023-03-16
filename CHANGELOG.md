@@ -59,6 +59,21 @@ In this release, the schema version has changed from 17 to 19.
   client's specific `clients.persistent.safesearch` and then change the
   `schema_version` back to `17`.
 
+### Deprecated
+
+- `POST /control/safesearch/enable` is deprecated.  Use the new
+  `PUT /control/safesearch/settings`.
+- `POST /control/safesearch/disable` is deprecated.  Use the new
+  `PUT /control/safesearch/settings`.
+
+The `safesearch_enabled` field is deprecated in following APIs:
+- `GET /control/clients`
+- `POST /control/clients/add`
+- `POST /control/clients/update`
+- `GET /control/clients/find?ip0=...&ip1=...&ip2=...`
+
+Check `openapi/openapi.yaml` for more details.
+
 ### Fixed
 
 - Panic caused by empty top-level domain name label in `/etc/hosts` files
