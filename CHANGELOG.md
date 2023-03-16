@@ -30,7 +30,7 @@ NOTE: Add new changes BELOW THIS COMMENT.
 
 ### Changed 
 
-- ARPA domain names containing a subnet within private networks is now also
+- ARPA domain names containing a subnet within private networks now also
   considered private, behaving closer to [RFC 6761][rfc6761] ([#5567]).
 
 #### Configuration Changes

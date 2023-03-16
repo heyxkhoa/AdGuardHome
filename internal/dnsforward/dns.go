@@ -443,47 +443,70 @@ func (s *Server) processDHCPHosts(dctx *dnsContext) (rc resultCode) {
 	return resultCodeSuccess
 }
 
+// indexFirstV4Label returns the index at which the reversed IPv4 address
+// starts, assuiming the domain is pre-validated ARPA domain having in-addr and
+// arpa labels removed.
+func indexFirstV4Label(domain string) (idx int) {
+	idx = len(domain)
+	for labelsNum := 0; labelsNum < net.IPv4len && idx > 0; labelsNum++ {
+		curIdx := strings.LastIndexByte(domain[:idx-1], '.') + 1
+		_, parseErr := strconv.ParseUint(domain[curIdx:idx-1], 10, 8)
+		if parseErr != nil {
+			return idx
+		}
+
+		idx = curIdx
+	}
+
+	return idx
+}
+
+// indexFirstV6Label returns the index at which the reversed IPv6 address
+// starts, assuiming the domain is pre-validated ARPA domain having ip6 and arpa
+// labels removed.
+func indexFirstV6Label(domain string) (idx int) {
+	idx = len(domain)
+	for labelsNum := 0; labelsNum < net.IPv6len*2 && idx > 0; labelsNum++ {
+		curIdx := idx - len("a.")
+		if curIdx > 1 && domain[curIdx-1] != '.' {
+			return idx
+		}
+
+		nibble := domain[curIdx]
+		if (nibble < '0' || nibble > '9') && (nibble < 'a' || nibble > 'f') {
+			return idx
+		}
+
+		idx = curIdx
+	}
+
+	return idx
+}
+
 // extractARPASubnet tries to convert a reversed ARPA address being a part of
 // domain to an IP network.  domain must be an FQDN.
 //
 // TODO(e.burkov):  Move to golibs.
 func extractARPASubnet(domain string) (subnet *net.IPNet, err error) {
+	err = netutil.ValidateDomainName(strings.TrimSuffix(domain, "."))
+	if err != nil {
+		// Don't wrap the error since it's informative enough as is.
+		return nil, err
+	}
+
 	const (
-		arpaSuffix = "arpa."
-		v4Suffix   = "in-addr." + arpaSuffix
-		v6Suffix   = "ip6." + arpaSuffix
+		v4Suffix = "in-addr.arpa."
+		v6Suffix = "ip6.arpa."
 	)
 
 	domain = strings.ToLower(domain)
 
-	// leftmostIdx is the index of the leftmost byte pertaining to the address
-	// part of domain.
-	leftmostIdx := len(domain)
-
-	labelsLeft := 0
-	var isAddrLabel func(left, right int) (ok bool)
-
-	switch head := domain[:leftmostIdx]; {
-	case strings.HasSuffix(head, v4Suffix):
-		leftmostIdx -= len(v4Suffix) + 1
-		labelsLeft = net.IPv4len
-		isAddrLabel = func(left, right int) (ok bool) {
-			_, parseErr := strconv.ParseUint(domain[left:right], 10, 8)
-
-			return parseErr == nil
-		}
-	case strings.HasSuffix(head, v6Suffix):
-		leftmostIdx -= len(v6Suffix) + 1
-		// Reversed IPv6 consists of nibbles, which is a half of byte.
-		labelsLeft = net.IPv6len * 2
-		isAddrLabel = func(left, right int) (ok bool) {
-			if right-left == 1 {
-				nibble := domain[left]
-				ok = (nibble >= '0' && nibble <= '9') || (nibble >= 'a' && nibble <= 'f')
-			}
-
-			return ok
-		}
+	var idx int
+	switch {
+	case strings.HasSuffix(domain, v4Suffix):
+		idx = indexFirstV4Label(domain[:len(domain)-len(v4Suffix)])
+	case strings.HasSuffix(domain, v6Suffix):
+		idx = indexFirstV6Label(domain[:len(domain)-len(v6Suffix)])
 	default:
 		return nil, &netutil.AddrError{
 			Err:  netutil.ErrNotAReversedSubnet,
@@ -492,17 +515,7 @@ func extractARPASubnet(domain string) (subnet *net.IPNet, err error) {
 		}
 	}
 
-	for ; labelsLeft > 0 && leftmostIdx > 0; labelsLeft-- {
-		idx := strings.LastIndexByte(domain[:leftmostIdx], '.')
-		if !isAddrLabel(idx+1, leftmostIdx) {
-			break
-		}
-
-		leftmostIdx = idx
-	}
-	leftmostIdx += 1
-
-	return netutil.SubnetFromReversedAddr(domain[leftmostIdx:])
+	return netutil.SubnetFromReversedAddr(domain[idx:])
 }
 
 // processRestrictLocal responds with NXDOMAIN to PTR requests for IP addresses
