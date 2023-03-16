@@ -181,7 +181,7 @@ manifest file templates, and helper scripts.
  *  `go run main.go help`: print usage.
 
  *  `go run main.go download [-n <count>]`: download and save all translations.
-    n is optional flag where count is a number of concurrent downloads.
+    `n` is optional flag where count is a number of concurrent downloads.
 
  *  `go run main.go upload`: upload the base `en` locale.
 

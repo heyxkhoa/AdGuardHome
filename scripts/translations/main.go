@@ -23,37 +23,44 @@ import (
 )
 
 const (
-	twoskyConfFile   = "../../.twosky.json"
-	localesDir       = "../../client/src/__locales"
+	twoskyConfFile   = "./.twosky.json"
+	localesDir       = "./client/src/__locales"
 	defaultBaseFile  = "en.json"
 	defaultProjectID = "home"
-	srcDir           = "../../client/src"
+	srcDir           = "./client/src"
 	twoskyURI        = "https://twosky.int.agrd.dev/api/v1"
 
 	readLimit = 1 * 1024 * 1024
 )
 
-// langcode is a language code.
-type langcode string
+// langCode is a language code.
+type langCode string
 
 // languages is a map, where key is language code and value is display name.
-type languages map[langcode]string
+type languages map[langCode]string
 
-// textlabel is a text label.
-type txtlabel string
+// textlabel is a text label of localization.
+type textLabel string
 
 // locales is a map, where key is text label and value is translation.
-type locales map[txtlabel]string
+type locales map[textLabel]string
 
 func main() {
 	if len(os.Args) == 1 {
 		usage("need a command")
 	}
 
+	if os.Args[1] == "help" {
+		usage("")
+	}
+
 	uriStr := os.Getenv("TWOSKY_URI")
 	if uriStr == "" {
 		uriStr = twoskyURI
 	}
+
+	uri, err := url.Parse(uriStr)
+	check(err)
 
 	projectID := os.Getenv("TWOSKY_PROJECT_ID")
 	if projectID == "" {
@@ -76,19 +83,16 @@ func main() {
 		check(err)
 
 		if count < 1 {
-			count = 1
+			usage("count must be positive")
 		}
 
-		err = download(uriStr, projectID, conf.Languages, count)
-		check(err)
+		download(uri, projectID, conf.Languages, count)
 	case "unused":
 		err = unused()
 		check(err)
 	case "upload":
-		err = upload(uriStr, projectID, conf.BaseLangcode)
+		err = upload(uri, projectID, conf.BaseLangcode)
 		check(err)
-	case "help", "-help", "--help":
-		usage("")
 	default:
 		usage("unknown command")
 	}
@@ -101,28 +105,21 @@ func check(err error) {
 	}
 }
 
-// mark is a simple error-printing helper for scripts.
-func mark(err error) {
-	if err != nil {
-		log.Println(err)
-	}
-}
-
 // usage prints usage.  If addStr is not empty print addStr and exit with code
 // 1, otherwise exit with code 0.
 func usage(addStr string) {
 	const usageStr = `Usage: go run main.go <command> [<args>]
 Commands:
   help
-    	Print usage
+        Print usage.
   summary
-    	Print summary
+        Print summary.
   download [-n <count>]
-		Download translations. count is a number of concurrent downloads.
+        Download translations. count is a number of concurrent downloads.
   unused
-    	Print unused strings
+        Print unused strings.
   upload
-    	Upload translations`
+        Upload translations.`
 
 	if addStr != "" {
 		fmt.Printf("%s\n%s\n", addStr, usageStr)
@@ -135,6 +132,14 @@ Commands:
 	os.Exit(0)
 }
 
+// twoskyConf is the configuration structure for localization.
+type twoskyConf struct {
+	Languages        languages `json:"languages"`
+	ProjectID        string    `json:"project_id"`
+	BaseLangcode     langCode  `json:"base_locale"`
+	LocalizableFiles []string  `json:"localizable_files"`
+}
+
 // readTwoskyConf returns configuration.
 func readTwoskyConf() (t twoskyConf, err error) {
 	b, err := os.ReadFile(twoskyConfFile)
@@ -142,21 +147,29 @@ func readTwoskyConf() (t twoskyConf, err error) {
 		return twoskyConf{}, err
 	}
 
-	var conf []twoskyConf
-	err = json.Unmarshal(b, &conf)
+	var tsc []twoskyConf
+	err = json.Unmarshal(b, &tsc)
 	if err != nil {
-		err = errors.Annotate(err, "unmarshalling %s: %w", twoskyConfFile)
+		err = fmt.Errorf("unmarshalling %q: %w", twoskyConfFile, err)
 
 		return twoskyConf{}, err
 	}
 
-	if len(conf) == 0 {
-		err = fmt.Errorf("%s is empty", twoskyConfFile)
+	if len(tsc) == 0 {
+		err = fmt.Errorf("%q is empty", twoskyConfFile)
 
 		return twoskyConf{}, err
 	}
 
-	return conf[0], nil
+	conf := tsc[0]
+
+	for _, lang := range conf.Languages {
+		if lang == "" {
+			return twoskyConf{}, errors.Error("language is empty")
+		}
+	}
+
+	return conf, nil
 }
 
 // readLocales reads file with name fn and returns a map, where key is text
@@ -170,7 +183,7 @@ func readLocales(fn string) (loc locales, err error) {
 	loc = make(locales)
 	err = json.Unmarshal(b, &loc)
 	if err != nil {
-		err = errors.Annotate(err, "unmarshalling %s: %w", fn)
+		err = fmt.Errorf("unmarshalling %q: %w", fn, err)
 
 		return nil, err
 	}
@@ -179,7 +192,7 @@ func readLocales(fn string) (loc locales, err error) {
 }
 
 // summary prints summary for translations.
-func summary(lns languages) (err error) {
+func summary(langs languages) (err error) {
 	basePath := filepath.Join(localesDir, defaultBaseFile)
 	baseLoc, err := readLocales(basePath)
 	if err != nil {
@@ -188,21 +201,21 @@ func summary(lns languages) (err error) {
 
 	size := float64(len(baseLoc))
 
-	sum := make(map[langcode]float64)
+	sum := make(map[langCode]float64)
 
-	for ln := range lns {
-		path := filepath.Join(localesDir, string(ln)+".json")
-		if path == basePath {
+	for lang := range langs {
+		name := filepath.Join(localesDir, string(lang)+".json")
+		if name == basePath {
 			continue
 		}
 
 		var loc locales
-		loc, err = readLocales(path)
+		loc, err = readLocales(name)
 		if err != nil {
 			return err
 		}
 
-		sum[ln] = float64(len(loc)) * 100 / size
+		sum[lang] = float64(len(loc)) * 100 / size
 	}
 
 	printSummary(sum)
@@ -211,7 +224,7 @@ func summary(lns languages) (err error) {
 }
 
 // printSummary to stdout.
-func printSummary(sum map[langcode]float64) {
+func printSummary(sum map[langCode]float64) {
 	keys := maps.Keys(sum)
 	slices.Sort(keys)
 
@@ -220,92 +233,104 @@ func printSummary(sum map[langcode]float64) {
 	}
 }
 
-// locURL contains language code and URL of translation.
-type locURL struct {
-	code langcode
-	url  string
-}
+// download and save all translations.  uri is the base URL.  projectID is the
+// name of the project.  numWorker is the number of workers for concurrent
+// download.
+func download(uri *url.URL, projectID string, langs languages, numWorker int) {
+	downloadURI := uri.JoinPath("download")
 
-// download translations.  w is number of workers.
-func download(uriStr, projectID string, lns languages, w int) (err error) {
-	downloadURI, err := url.JoinPath(uriStr, "download")
-	if err != nil {
-		return err
-	}
-
-	locCh := make(chan locURL)
-
-	for i := 0; i < w; i++ {
-		go downloadWorker(locCh)
-	}
-
-	for ln := range lns {
-		if ln == "" {
-			return errors.Error("language is empty")
-		}
-
-		v := url.Values{}
-		v.Set("format", "json")
-		v.Set("language", string(ln))
-		v.Set("filename", defaultBaseFile)
-		v.Set("project", projectID)
-
-		uri := downloadURI + "?" + v.Encode()
-
-		loc := locURL{ln, uri}
-
-		locCh <- loc
-	}
-
-	close(locCh)
-
-	return nil
-}
-
-// downloadWorker downloads translations by received urls.
-func downloadWorker(locCh <-chan locURL) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
-	for loc := range locCh {
-		resp, err := client.Get(loc.url)
-		if err != nil {
-			mark(err)
+	uriCh := make(chan *url.URL)
 
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("url: %s; status code: %s", loc.url, http.StatusText(resp.StatusCode))
-			mark(err)
-
-			continue
-		}
-
-		limitReader, err := aghio.LimitReader(resp.Body, readLimit)
-		if err != nil {
-			mark(err)
-
-			continue
-		}
-
-		buf, err := io.ReadAll(limitReader)
-		if err != nil {
-			mark(err)
-
-			continue
-		}
-
-		path := filepath.Join(localesDir, string(loc.code)+".json")
-		err = os.WriteFile(path, buf, 0o664)
-		mark(err)
-
-		err = resp.Body.Close()
-		mark(err)
-
-		fmt.Println(path)
+	for i := 0; i < numWorker; i++ {
+		go downloadWorker(client, uriCh)
 	}
+
+	for lang := range langs {
+		uri = getTranslationURL(downloadURI, defaultBaseFile, projectID, lang)
+
+		uriCh <- uri
+	}
+
+	close(uriCh)
+}
+
+// downloadWorker downloads translations by received urls and saves them.
+func downloadWorker(client *http.Client, uriCh <-chan *url.URL) {
+	for uri := range uriCh {
+		data, err := getTranslation(client, uri.String())
+		if err != nil {
+			log.Println("download worker get translation:", err)
+
+			continue
+		}
+
+		q := uri.Query()
+		code := q.Get("language")
+
+		name := filepath.Join(localesDir, code+".json")
+		err = os.WriteFile(name, data, 0o664)
+		if err != nil {
+			log.Println("download worker write file:", err)
+
+			continue
+		}
+
+		fmt.Println(name)
+	}
+}
+
+// getTranslation returns received translation data or error.
+func getTranslation(client *http.Client, url string) (data []byte, err error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		err = fmt.Errorf("get: %w", err)
+
+		return []byte{}, err
+	}
+
+	defer log.OnCloserError(resp.Body, log.ERROR)
+
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("url: %q; status code: %s", url, http.StatusText(resp.StatusCode))
+
+		return []byte{}, err
+	}
+
+	limitReader, err := aghio.LimitReader(resp.Body, readLimit)
+	if err != nil {
+		err = fmt.Errorf("limit reader: %w", err)
+
+		return []byte{}, err
+	}
+
+	data, err = io.ReadAll(limitReader)
+	if err != nil {
+		err = fmt.Errorf("read all: %w", err)
+
+		return []byte{}, err
+	}
+
+	return data, nil
+}
+
+// getTranslationURL returns a new [url.URL] with provided query parameters.
+func getTranslationURL(oldURL *url.URL, baseFile, projectID string, lang langCode) (uri *url.URL) {
+	uri, err := url.Parse(oldURL.String())
+	check(err)
+
+	q := uri.Query()
+	q.Set("format", "json")
+	q.Set("filename", baseFile)
+	q.Set("project", projectID)
+	q.Set("language", string(lang))
+
+	uri.RawQuery = q.Encode()
+
+	return uri
 }
 
 // unused prints unused text labels.
@@ -317,32 +342,32 @@ func unused() (err error) {
 		return err
 	}
 
-	err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
-		if strings.HasPrefix(path, localesDir) {
+	// We don't need no file info.  There is no place for errors.
+	err = filepath.Walk(srcDir, func(name string, _ os.FileInfo, _ error) error {
+		locDir := filepath.Clean(localesDir)
+
+		if strings.HasPrefix(name, locDir) {
 			return nil
 		}
 
-		if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".json") {
-			fileNames = append(fileNames, path)
+		if strings.HasSuffix(name, ".js") || strings.HasSuffix(name, ".json") {
+			fileNames = append(fileNames, name)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return errors.Annotate(err, "filepath walking %s: %w", srcDir)
+		return fmt.Errorf("filepath walking %q: %w", srcDir, err)
 	}
 
 	err = removeUnused(fileNames, baseLoc)
-	if err != nil {
-		return errors.Annotate(err, "unused: %w")
-	}
 
-	return nil
+	return errors.Annotate(err, "remove unused: %w")
 }
 
 func removeUnused(fileNames []string, loc locales) (err error) {
-	knownUsed := []txtlabel{
+	knownUsed := []textLabel{
 		"blocking_mode_refused",
 		"blocking_mode_nxdomain",
 		"blocking_mode_custom_ip",
@@ -383,23 +408,17 @@ func printUnused(loc locales) {
 	}
 }
 
-// upload base translation.
-func upload(uriStr, projectID string, baseLn langcode) (err error) {
-	uploadURI, err := url.JoinPath(uriStr, "upload")
-	if err != nil {
-		return errors.Annotate(err, "upload join path: %w")
-	}
+// upload base translation.  uri is the base URL.  projectID is the name of the
+// project.  baseLn is the base language code.
+func upload(uri *url.URL, projectID string, baseLn langCode) (err error) {
+	uploadURI := uri.JoinPath("upload")
 
-	ln := os.Getenv("UPLOAD_LANGUAGE")
-	if ln == "" {
-		ln = string(baseLn)
-	}
+	lang := baseLn
 
-	v := url.Values{}
-	v.Set("format", "json")
-	v.Set("language", ln)
-	v.Set("filename", defaultBaseFile)
-	v.Set("project", projectID)
+	langStr := os.Getenv("UPLOAD_LANGUAGE")
+	if langStr != "" {
+		lang = langCode(langStr)
+	}
 
 	basePath := filepath.Join(localesDir, defaultBaseFile)
 	b, err := os.ReadFile(basePath)
@@ -407,33 +426,24 @@ func upload(uriStr, projectID string, baseLn langcode) (err error) {
 		return err
 	}
 
-	url := uploadURI + "?" + v.Encode()
-
 	var buf bytes.Buffer
 	buf.Write(b)
 
+	uri = getTranslationURL(uploadURI, defaultBaseFile, projectID, lang)
+
 	var client http.Client
-	resp, err := client.Post(url, "application/json", &buf)
+	resp, err := client.Post(uri.String(), "application/json", &buf)
 	if err != nil {
-		return errors.Annotate(err, "upload client post: %w")
+		return fmt.Errorf("upload: client post: %w", err)
 	}
 
 	defer func() {
 		err = resp.Body.Close()
-		mark(err)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status code is not ok: %s", http.StatusText(resp.StatusCode))
+		return fmt.Errorf("status code is not ok: %q", http.StatusText(resp.StatusCode))
 	}
 
 	return nil
-}
-
-// twoskyConf is the configuration structure for localization.
-type twoskyConf struct {
-	Languages        languages `json:"languages"`
-	ProjectID        string    `json:"project_id"`
-	BaseLangcode     langcode  `json:"base_locale"`
-	LocalizableFiles []string  `json:"localizable_files"`
 }
