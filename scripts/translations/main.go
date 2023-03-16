@@ -144,6 +144,7 @@ type twoskyConf struct {
 func readTwoskyConf() (t twoskyConf, err error) {
 	b, err := os.ReadFile(twoskyConfFile)
 	if err != nil {
+		// Don't wrap the error since it's informative enough as is.
 		return twoskyConf{}, err
 	}
 
@@ -177,6 +178,7 @@ func readTwoskyConf() (t twoskyConf, err error) {
 func readLocales(fn string) (loc locales, err error) {
 	b, err := os.ReadFile(fn)
 	if err != nil {
+		// Don't wrap the error since it's informative enough as is.
 		return nil, err
 	}
 
@@ -196,7 +198,7 @@ func summary(langs languages) (err error) {
 	basePath := filepath.Join(localesDir, defaultBaseFile)
 	baseLoc, err := readLocales(basePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("summary: %w", err)
 	}
 
 	size := float64(len(baseLoc))
@@ -212,7 +214,7 @@ func summary(langs languages) (err error) {
 		var loc locales
 		loc, err = readLocales(name)
 		if err != nil {
-			return err
+			return fmt.Errorf("summary read locales: %w", err)
 		}
 
 		sum[lang] = float64(len(loc)) * 100 / size
@@ -263,7 +265,7 @@ func downloadWorker(client *http.Client, uriCh <-chan *url.URL) {
 	for uri := range uriCh {
 		data, err := getTranslation(client, uri.String())
 		if err != nil {
-			log.Println("download worker get translation:", err)
+			log.Error("download worker get translation: %s", err)
 
 			continue
 		}
@@ -274,7 +276,7 @@ func downloadWorker(client *http.Client, uriCh <-chan *url.URL) {
 		name := filepath.Join(localesDir, code+".json")
 		err = os.WriteFile(name, data, 0o664)
 		if err != nil {
-			log.Println("download worker write file:", err)
+			log.Error("download worker write file: %s", err)
 
 			continue
 		}
@@ -289,7 +291,7 @@ func getTranslation(client *http.Client, url string) (data []byte, err error) {
 	if err != nil {
 		err = fmt.Errorf("get: %w", err)
 
-		return []byte{}, err
+		return nil, err
 	}
 
 	defer log.OnCloserError(resp.Body, log.ERROR)
@@ -297,21 +299,21 @@ func getTranslation(client *http.Client, url string) (data []byte, err error) {
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("url: %q; status code: %s", url, http.StatusText(resp.StatusCode))
 
-		return []byte{}, err
+		return nil, err
 	}
 
 	limitReader, err := aghio.LimitReader(resp.Body, readLimit)
 	if err != nil {
 		err = fmt.Errorf("limit reader: %w", err)
 
-		return []byte{}, err
+		return nil, err
 	}
 
 	data, err = io.ReadAll(limitReader)
 	if err != nil {
 		err = fmt.Errorf("read all: %w", err)
 
-		return []byte{}, err
+		return nil, err
 	}
 
 	return data, nil
@@ -339,7 +341,7 @@ func unused() (err error) {
 	basePath := filepath.Join(localesDir, defaultBaseFile)
 	baseLoc, err := readLocales(basePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("unused: %w", err)
 	}
 
 	// We don't need no file info.  There is no place for errors.
@@ -381,6 +383,7 @@ func removeUnused(fileNames []string, loc locales) (err error) {
 		var buf []byte
 		buf, err = os.ReadFile(fn)
 		if err != nil {
+			// Don't wrap the error since it's informative enough as is.
 			return err
 		}
 
@@ -423,6 +426,7 @@ func upload(uri *url.URL, projectID string, baseLn langCode) (err error) {
 	basePath := filepath.Join(localesDir, defaultBaseFile)
 	b, err := os.ReadFile(basePath)
 	if err != nil {
+		// Don't wrap the error since it's informative enough as is.
 		return err
 	}
 
@@ -438,7 +442,7 @@ func upload(uri *url.URL, projectID string, baseLn langCode) (err error) {
 	}
 
 	defer func() {
-		err = resp.Body.Close()
+		err = errors.WithDeferred(err, resp.Body.Close())
 	}()
 
 	if resp.StatusCode != http.StatusOK {
