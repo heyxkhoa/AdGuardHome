@@ -203,9 +203,10 @@ func summary(langs languages) (err error) {
 
 	size := float64(len(baseLoc))
 
-	sum := make(map[langCode]float64)
+	keys := maps.Keys(langs)
+	slices.Sort(keys)
 
-	for lang := range langs {
+	for _, lang := range keys {
 		name := filepath.Join(localesDir, string(lang)+".json")
 		if name == basePath {
 			continue
@@ -217,22 +218,12 @@ func summary(langs languages) (err error) {
 			return fmt.Errorf("summary read locales: %w", err)
 		}
 
-		sum[lang] = float64(len(loc)) * 100 / size
-	}
+		f := float64(len(loc)) * 100 / size
 
-	printSummary(sum)
+		fmt.Printf("%s\t %6.2f\n", lang, f)
+	}
 
 	return nil
-}
-
-// printSummary to stdout.
-func printSummary(sum map[langCode]float64) {
-	keys := maps.Keys(sum)
-	slices.Sort(keys)
-
-	for _, v := range keys {
-		fmt.Printf("%s\t %6.2f\n", v, sum[v])
-	}
 }
 
 // download and save all translations.  uri is the base URL.  projectID is the
