@@ -96,7 +96,7 @@ func jsonToClient(cj clientJSON) (c *Client) {
 		safeSearchConf = *cj.SafeSearchConf
 	} else {
 		// TODO(d.kolyshev): Remove after cleaning the deprecated
-		// `SafeSearchEnabled` field in [clientJSON].
+		// [clientJSON.SafeSearchEnabled] field.
 		safeSearchConf = filtering.SafeSearchConfig{Enabled: cj.SafeSearchEnabled}
 
 		// Set default service flags for enabled safesearch.
@@ -129,7 +129,7 @@ func jsonToClient(cj clientJSON) (c *Client) {
 // clientToJSON converts Client object to JSON.
 func clientToJSON(c *Client) (cj *clientJSON) {
 	// TODO(d.kolyshev): Remove after cleaning the deprecated
-	// `SafeSearchEnabled` field in [clientJSON].
+	// [clientJSON.SafeSearchEnabled] field.
 	cloneVal := c.safeSearchConf
 	safeSearchConf := &cloneVal
 
