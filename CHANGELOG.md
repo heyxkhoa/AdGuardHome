@@ -11,45 +11,499 @@ and this project adheres to
 
 ## [Unreleased]
 
+<!--
+## [v0.108.0] - TBA
+
+## [v0.107.27] - 2023-03-29 (APPROX.)
+
+See also the [v0.107.27 GitHub milestone][ms-v0.107.27].
+
+[ms-v0.107.27]: https://github.com/AdguardTeam/AdGuardHome/milestone/63?closed=1
+
+NOTE: Add new changes BELOW THIS COMMENT.
+-->
 
 ### Added
 
-- The new optional `tls.override_tls_ciphers` property list, which can be set in
-  the configuration file.  It allows overriding TLS Ciphers that are used for
-  https listeners ([#4925])
+- The ability to manage safesearch for each service by using the new
+  `safe_search` field ([#1163]).
 
-[#4925]: https://github.com/AdguardTeam/AdGuardHome/issues/4925
+### Changed
+
+#### Configuration Changes
+
+In this release, the schema version has changed from 17 to 19.
+
+- The `dns.safesearch_enabled` field has been replaced with `safe_search`
+  object containing per-service settings.
+- The `clients.persistent.safesearch_enabled` field has been replaced with
+  `safe_search` object containing per-service settings.
+
+  ```yaml
+    # BEFORE:
+    'safesearch_enabled': true
+
+    # AFTER:
+    'safe_search':
+      'enabled': true
+      'bing': true
+      'duckduckgo': true
+      'google': true
+      'pixabay': true
+      'yandex': true
+      'youtube': true
+  ```
+
+  To rollback this change, move the value of `dns.safe_search.enabled` into the
+  `dns.safesearch_enabled`, then remove `dns.safe_search` field.  Do the same
+  client's specific `clients.persistent.safesearch` and then change the
+  `schema_version` back to `17`.
+
+### Fixed
+
+- Panic caused by empty top-level domain name label in `/etc/hosts` files
+  ([#5584]).
+
+[#1163]: https://github.com/AdguardTeam/AdGuardHome/issues/1163
+[#5584]: https://github.com/AdguardTeam/AdGuardHome/issues/5584
 
 <!--
-## [v0.108.0] - TBA (APPROX.)
+NOTE: Add new changes ABOVE THIS COMMENT.
 -->
 
-## Security
+
+
+## [v0.107.26] - 2023-03-09
+
+See also the [v0.107.26 GitHub milestone][ms-v0.107.26].
+
+### Security
+
+- Go version has been updated to prevent the possibility of exploiting the
+  CVE-2023-24532 Go vulnerability fixed in [Go 1.19.7][go-1.19.7].
+
+### Added
+
+- The ability to set custom IP for EDNS Client Subnet by using the new
+  `dns.edns_client_subnet.use_custom` and `dns.edns_client_subnet.custom_ip`
+  fields ([#1472]).  The UI changes are coming in the upcoming releases.
+- The ability to use `dnstype` rules in the disallowed domains list ([#5468]).
+  This allows dropping requests based on their question types.
+
+### Changed
+
+#### Configuration Changes
+
+In this release, the schema version has changed from 16 to 17.
+
+- Property `edns_client_subnet`, which in schema versions 16 and earlier used
+  to be a part of the `dns` object, is now part of the `dns.edns_client_subnet`
+  object:
+
+  ```yaml
+  # BEFORE:
+  'dns':
+    # …
+    'edns_client_subnet': false
+
+  # AFTER:
+  'dns':
+    # …
+    'edns_client_subnet':
+      'enabled': false
+      'use_custom': false
+      'custom_ip': ''
+  ```
+
+  To rollback this change, move the value of `dns.edns_client_subnet.enabled`
+  into the `dns.edns_client_subnet`, remove the fields
+  `dns.edns_client_subnet.enabled`, `dns.edns_client_subnet.use_custom`,
+  `dns.edns_client_subnet.custom_ip`, and change the `schema_version` back to
+  `16`.
+
+### Fixed
+
+- Obsolete value of the Interface MTU DHCP option is now omitted ([#5281]).
+- Various dark theme bugs ([#5439], [#5441], [#5442], [#5515]).
+- Automatic update on MIPS64 and little-endian 32-bit MIPS architectures
+  ([#5270], [#5373]).
+- Requirements to domain names in domain-specific upstream configurations have
+  been relaxed to meet those from [RFC 3696][rfc3696] ([#4884]).
+- Failing service installation via script on FreeBSD ([#5431]).
+
+[#1472]: https://github.com/AdguardTeam/AdGuardHome/issues/1472
+[#4884]: https://github.com/AdguardTeam/AdGuardHome/issues/4884
+[#5270]: https://github.com/AdguardTeam/AdGuardHome/issues/5270
+[#5281]: https://github.com/AdguardTeam/AdGuardHome/issues/5281
+[#5373]: https://github.com/AdguardTeam/AdGuardHome/issues/5373
+[#5431]: https://github.com/AdguardTeam/AdGuardHome/issues/5431
+[#5439]: https://github.com/AdguardTeam/AdGuardHome/issues/5439
+[#5441]: https://github.com/AdguardTeam/AdGuardHome/issues/5441
+[#5442]: https://github.com/AdguardTeam/AdGuardHome/issues/5442
+[#5468]: https://github.com/AdguardTeam/AdGuardHome/issues/5468
+[#5515]: https://github.com/AdguardTeam/AdGuardHome/issues/5515
+
+[go-1.19.7]:    https://groups.google.com/g/golang-announce/c/3-TpUx48iQY
+[ms-v0.107.26]: https://github.com/AdguardTeam/AdGuardHome/milestone/62?closed=1
+[rfc3696]:      https://datatracker.ietf.org/doc/html/rfc3696
+
+
+
+## [v0.107.25] - 2023-02-21
+
+See also the [v0.107.25 GitHub milestone][ms-v0.107.25].
+
+### Fixed
+
+- Panic when using unencrypted DNS-over-HTTPS ([#5518]).
+
+[#5518]: https://github.com/AdguardTeam/AdGuardHome/issues/5518
+
+[ms-v0.107.25]: https://github.com/AdguardTeam/AdGuardHome/milestone/61?closed=1
+
+
+
+## [v0.107.24] - 2023-02-15
+
+See also the [v0.107.24 GitHub milestone][ms-v0.107.24].
+
+### Security
+
+- Go version has been updated, both because Go 1.18 has reached end of life an
+  to prevent the possibility of exploiting the Go vulnerabilities fixed in [Go
+  1.19.6][go-1.19.6].
+
+### Added
+
+- The ability to disable statistics by using the new `statistics.enabled`
+  field.  Previously it was necessary to set the `statistics_interval` to 0,
+  losing the previous value ([#1717], [#4299]).
+- The ability to exclude domain names from the query log or statistics by using
+  the new `querylog.ignored` or `statistics.ignored` fields ([#1717], [#4299]).
+  The UI changes are coming in the upcoming releases.
+
+### Changed
+
+#### Configuration Changes
+
+In this release, the schema version has changed from 14 to 16.
+
+- Property `statistics_interval`, which in schema versions 15 and earlier used
+  to be a part of the `dns` object, is now a part of the `statistics` object:
+
+  ```yaml
+  # BEFORE:
+  'dns':
+    # …
+    'statistics_interval': 1
+
+  # AFTER:
+  'statistics':
+    # …
+    'interval': 1
+  ```
+
+  To rollback this change, move the property back into the `dns` object and
+  change the `schema_version` back to `15`.
+- The fields `dns.querylog_enabled`, `dns.querylog_file_enabled`,
+  `dns.querylog_interval`, and `dns.querylog_size_memory` have been moved to the
+  new `querylog` object.
+
+  ```yaml
+  # BEFORE:
+  'dns':
+    'querylog_enabled': true
+    'querylog_file_enabled': true
+    'querylog_interval': '2160h'
+    'querylog_size_memory': 1000
+
+  # AFTER:
+  'querylog':
+    'enabled': true
+    'file_enabled': true
+    'interval': '2160h'
+    'size_memory': 1000
+    'ignored': []
+  ```
+
+  To rollback this change, rename and move properties back into the `dns`
+  object, remove `querylog` object and `querylog.ignored` property, and change
+  the `schema_version` back to `14`.
+
+### Deprecated
+
+- Go 1.19 support.  Future versions will require at least Go 1.20 to build.
+
+### Fixed
+
+- Setting the AD (Authenticated Data) flag on responses that have the DO (DNSSEC
+  OK) flag set but not the AD flag ([#5479]).
+- Client names resolved via reverse DNS not being updated ([#4939]).
+- The icon for League Of Legends on the Blocked services page ([#5433]).
+
+### Removed
+
+- Go 1.18 support, as it has reached end of life.
+
+[#1717]: https://github.com/AdguardTeam/AdGuardHome/issues/1717
+[#4299]: https://github.com/AdguardTeam/AdGuardHome/issues/4299
+[#4939]: https://github.com/AdguardTeam/AdGuardHome/issues/4939
+[#5433]: https://github.com/AdguardTeam/AdGuardHome/issues/5433
+[#5479]: https://github.com/AdguardTeam/AdGuardHome/issues/5479
+
+[go-1.19.6]:    https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E
+[ms-v0.107.24]: https://github.com/AdguardTeam/AdGuardHome/milestone/60?closed=1
+
+
+
+## [v0.107.23] - 2023-02-01
+
+See also the [v0.107.23 GitHub milestone][ms-v0.107.23].
+
+### Added
+
+- DNS64 support ([#5117]).  The function may be enabled with new `use_dns64`
+  field under `dns` object in the configuration along with `dns64_prefixes`, the
+  set of exclusion prefixes to filter AAAA responses.  The Well-Known Prefix
+  (`64:ff9b::/96`) is used if no custom prefixes are specified.
+
+### Fixed
+
+- Filtering rules with `*` as the hostname not working properly ([#5245]).
+- Various dark theme bugs ([#5375]).
+
+### Removed
+
+- The “beta frontend” and the corresponding APIs.  They never quite worked
+  properly, and the future new version of AdGuard Home API will probably be
+  different.
+
+  Correspondingly, the configuration parameter `beta_bind_port` has been removed
+  as well.
+
+[#5117]: https://github.com/AdguardTeam/AdGuardHome/issues/5117
+[#5245]: https://github.com/AdguardTeam/AdGuardHome/issues/5245
+[#5375]: https://github.com/AdguardTeam/AdGuardHome/issues/5375
+
+[ms-v0.107.23]: https://github.com/AdguardTeam/AdGuardHome/milestone/59?closed=1
+
+
+
+## [v0.107.22] - 2023-01-19
+
+See also the [v0.107.22 GitHub milestone][ms-v0.107.22].
+
+### Added
+
+- Experimental Dark UI theme ([#613]).
+- The new HTTP API `PUT /control/profile/update`, that updates current user
+  language and UI theme.  The format of request body is described in
+  `openapi/openapi.yaml`.
+
+### Changed
+
+- The HTTP API `GET /control/profile` now returns enhanced object with
+  current user's name, language, and UI theme.  The format of response body is
+  described in `openapi/openapi.yaml` and `openapi/CHANGELOG.md`.
+
+### Fixed
+
+- `AdGuardHome --update` freezing when another instance of AdGuard Home is
+  running ([#4223], [#5191]).
+- The `--update` flag performing an update even when there is no version change.
+- Failing HTTPS redirection on saving the encryption settings ([#4898]).
+- Zeroing rules counter of erroneously edited filtering rule lists ([#5290]).
+- Filters updating strategy, which could sometimes lead to use of broken or
+  incompletely downloaded lists ([#5258]).
+
+[#613]:  https://github.com/AdguardTeam/AdGuardHome/issues/613
+[#5191]: https://github.com/AdguardTeam/AdGuardHome/issues/5191
+[#5290]: https://github.com/AdguardTeam/AdGuardHome/issues/5290
+[#5258]: https://github.com/AdguardTeam/AdGuardHome/issues/5258
+
+[ms-v0.107.22]: https://github.com/AdguardTeam/AdGuardHome/milestone/58?closed=1
+
+
+
+## [v0.107.21] - 2022-12-15
+
+See also the [v0.107.21 GitHub milestone][ms-v0.107.21].
+
+### Changed
+
+- The URLs of the default filters for new installations are synchronized to
+  those introduced in v0.107.20 ([#5238]).
+
+  **NOTE:** Some users may need to re-add the lists from the vetted filter lists
+  to update the URLs to the new ones.  Custom filters added by users themselves
+  do not require re-adding.
+
+### Fixed
+
+- Errors popping up during updates of settings, which could sometimes cause the
+  server to stop responding ([#5251]).
+
+[#5238]: https://github.com/AdguardTeam/AdGuardHome/issues/5238
+[#5251]: https://github.com/AdguardTeam/AdGuardHome/issues/5251
+
+[ms-v0.107.21]: https://github.com/AdguardTeam/AdGuardHome/milestone/57?closed=1
+
+
+
+## [v0.107.20] - 2022-12-07
+
+See also the [v0.107.20 GitHub milestone][ms-v0.107.20].
+
+### Security
+
+- Go version has been updated to prevent the possibility of exploiting the
+  CVE-2022-41717 and CVE-2022-41720 Go vulnerabilities fixed in [Go
+  1.18.9][go-1.18.9].
+
+### Added
+
+- The ability to clear the DNS cache ([#5190]).
+
+### Changed
+
+- DHCP server initialization errors are now logged at debug level if the server
+  itself disabled ([#4944]).
+
+### Fixed
+
+- Wrong validation error messages on the DHCP configuration page ([#5208]).
+- Slow upstream checks making the API unresponsive ([#5193]).
+- The TLS initialization errors preventing AdGuard Home from starting ([#5189]).
+  Instead, AdGuard Home disables encryption and shows an error message on the
+  encryption settings page in the UI, which was the intended previous behavior.
+- URLs of some vetted blocklists.
+
+[#4944]: https://github.com/AdguardTeam/AdGuardHome/issues/4944
+[#5189]: https://github.com/AdguardTeam/AdGuardHome/issues/5189
+[#5190]: https://github.com/AdguardTeam/AdGuardHome/issues/5190
+[#5193]: https://github.com/AdguardTeam/AdGuardHome/issues/5193
+[#5208]: https://github.com/AdguardTeam/AdGuardHome/issues/5208
+
+[go-1.18.9]:    https://groups.google.com/g/golang-announce/c/L_3rmdT0BMU
+[ms-v0.107.20]: https://github.com/AdguardTeam/AdGuardHome/milestone/56?closed=1
+
+
+
+## [v0.107.19] - 2022-11-23
+
+See also the [v0.107.19 GitHub milestone][ms-v0.107.19].
+
+### Added
+
+- The ability to block popular Mastodon instances
+  ([AdguardTeam/HostlistsRegistry#100]).
+- The new `--update` command-line option, which allows updating AdGuard Home
+  silently ([#4223]).
+
+### Changed
+
+- Minor UI changes.
+
+[#4223]: https://github.com/AdguardTeam/AdGuardHome/issues/4223
+
+[ms-v0.107.19]: https://github.com/AdguardTeam/AdGuardHome/milestone/55?closed=1
+
+[AdguardTeam/HostlistsRegistry#100]: https://github.com/AdguardTeam/HostlistsRegistry/pull/100
+
+
+
+## [v0.107.18] - 2022-11-08
+
+See also the [v0.107.18 GitHub milestone][ms-v0.107.18].
+
+### Fixed
+
+- Crash on some systems when domains from system hosts files are processed
+  ([#5089]).
+
+[#5089]: https://github.com/AdguardTeam/AdGuardHome/issues/5089
+
+[ms-v0.107.18]: https://github.com/AdguardTeam/AdGuardHome/milestone/54?closed=1
+
+
+
+## [v0.107.17] - 2022-11-02
+
+See also the [v0.107.17 GitHub milestone][ms-v0.107.17].
+
+### Security
+
+- Go version has been updated to prevent the possibility of exploiting the
+  CVE-2022-41716 Go vulnerability fixed in [Go 1.18.8][go-1.18.8].
+
+### Added
+
+- The warning message when adding a certificate having no IP addresses
+  ([#4898]).
+- Several new blockable services ([#3972]).  Those will now be more in sync with
+  the services that are already blockable in AdGuard DNS.
+- A new HTTP API, `GET /control/blocked_services/all`, that lists all available
+  blocked services and their data, such as SVG icons ([#3972]).
+- The new optional `tls.override_tls_ciphers` property, which allows
+  overriding TLS ciphers used by AdGuard Home ([#4925], [#4990]).
+- The ability to serve DNS on link-local IPv6 addresses ([#2926]).
+- The ability to put [ClientIDs][clientid] into DNS-over-HTTPS hostnames as
+  opposed to URL paths ([#3418]).  Note that AdGuard Home checks the server name
+  only if the URL does not contain a ClientID.
+
+### Changed
+
+- DNS-over-TLS resolvers aren't returned anymore when the configured TLS
+  certificate contains no IP addresses ([#4927]).
+- Responses with `SERVFAIL` code are now cached for at least 30 seconds.
+
+### Deprecated
+
+- The `GET /control/blocked_services/services` HTTP API; use the new
+  `GET /control/blocked_services/all` API instead ([#3972]).
+
+### Fixed
+
+- ClientIDs not working when using DNS-over-HTTPS with HTTP/3.
+- Editing the URL of an enabled rule list also includes validation of the filter
+  contents preventing from saving a bad one ([#4916]).
+- The default value of `dns.cache_size` accidentally set to 0 has now been
+  reverted to 4 MiB ([#5010]).
+- Responses for which the DNSSEC validation had explicitly been omitted aren't
+  cached now ([#4942]).
+- Web UI not switching to HTTP/3 ([#4986], [#4993]).
+
+[#2926]: https://github.com/AdguardTeam/AdGuardHome/issues/2926
+[#3418]: https://github.com/AdguardTeam/AdGuardHome/issues/3418
+[#3972]: https://github.com/AdguardTeam/AdGuardHome/issues/3972
+[#4898]: https://github.com/AdguardTeam/AdGuardHome/issues/4898
+[#4916]: https://github.com/AdguardTeam/AdGuardHome/issues/4916
+[#4925]: https://github.com/AdguardTeam/AdGuardHome/issues/4925
+[#4942]: https://github.com/AdguardTeam/AdGuardHome/issues/4942
+[#4986]: https://github.com/AdguardTeam/AdGuardHome/issues/4986
+[#4990]: https://github.com/AdguardTeam/AdGuardHome/issues/4990
+[#4993]: https://github.com/AdguardTeam/AdGuardHome/issues/4993
+[#5010]: https://github.com/AdguardTeam/AdGuardHome/issues/5010
+
+[clientid]:     https://github.com/AdguardTeam/AdGuardHome/wiki/Clients#clientid
+[go-1.18.8]:    https://groups.google.com/g/golang-announce/c/mbHY1UY3BaM
+[ms-v0.107.17]: https://github.com/AdguardTeam/AdGuardHome/milestone/53?closed=1
+
+
+
+## [v0.107.16] - 2022-10-07
+
+This is a security update.  There is no GitHub milestone, since no GitHub issues
+were resolved.
+
+### Security
 
 - Go version has been updated to prevent the possibility of exploiting the
   CVE-2022-2879, CVE-2022-2880, and CVE-2022-41715 Go vulnerabilities fixed in
   [Go 1.18.7][go-1.18.7].
 
-## Added
-
-- The ability to put [ClientIDs][clientid] into DNS-over-HTTPS hostnames as
-  opposed to URL paths ([#3418]).  Note that AdGuard Home checks the server name
-  only if the URL does not contain a ClientID.
-
-[#3418]: https://github.com/AdguardTeam/AdGuardHome/issues/3418
-
 [go-1.18.7]: https://groups.google.com/g/golang-announce/c/xtuG5faxtaU
-[clientid]:  https://github.com/AdguardTeam/AdGuardHome/wiki/Clients#clientid
 
-
-
-<!--
-## [v0.107.16] - 2022-11-02 (APPROX.)
-
-See also the [v0.107.16 GitHub milestone][ms-v0.107.15].
-
-[ms-v0.107.16]: https://github.com/AdguardTeam/AdGuardHome/milestone/52?closed=1
--->
 
 
 ## [v0.107.15] - 2022-10-03
@@ -90,7 +544,7 @@ experimental and may break or change in the future.
 [#4982]: https://github.com/AdguardTeam/AdGuardHome/issues/4982
 [#4983]: https://github.com/AdguardTeam/AdGuardHome/issues/4983
 
-[ms-v0.107.15]:   https://github.com/AdguardTeam/AdGuardHome/milestone/51?closed=1
+[ms-v0.107.15]: https://github.com/AdguardTeam/AdGuardHome/milestone/51?closed=1
 
 
 
@@ -100,9 +554,9 @@ See also the [v0.107.14 GitHub milestone][ms-v0.107.14].
 
 ### Security
 
-A Cross-Site Request Forgery (CSRF) vulnerability has been discovered.  The CVE
-number is to be assigned.  We thank Daniel Elkabes from Mend.io for reporting
-this vulnerability to us.
+A Cross-Site Request Forgery (CSRF) vulnerability has been discovered.  We thank
+Daniel Elkabes from Mend.io for reporting this vulnerability to us.  This is
+[CVE-2022-32175].
 
 #### `SameSite` Policy
 
@@ -151,6 +605,7 @@ All JSON APIs that expect a body now check if the request actually has
 [#4927]: https://github.com/AdguardTeam/AdGuardHome/issues/4927
 [#4930]: https://github.com/AdguardTeam/AdGuardHome/issues/4930
 
+[CVE-2022-32175]: https://www.cvedetails.com/cve/CVE-2022-32175
 [ms-v0.107.14]:   https://github.com/AdguardTeam/AdGuardHome/milestone/50?closed=1
 
 
@@ -178,7 +633,7 @@ See also the [v0.107.13 GitHub milestone][ms-v0.107.13].
 [#4722]: https://github.com/AdguardTeam/AdGuardHome/issues/4722
 [#4904]: https://github.com/AdguardTeam/AdGuardHome/issues/4904
 
-[ms-v0.107.13]:   https://github.com/AdguardTeam/AdGuardHome/milestone/49?closed=1
+[ms-v0.107.13]: https://github.com/AdguardTeam/AdGuardHome/milestone/49?closed=1
 
 
 
@@ -775,7 +1230,7 @@ See also the [v0.107.0 GitHub milestone][ms-v0.107.0].
 - Query log search now supports internationalized domains ([#3012]).
 - Internationalized domains are now shown decoded in the query log with the
   original encoded version shown in request details ([#3013]).
-- When /etc/hosts-type rules have several IPs for one host, all IPs are now
+- When `/etc/hosts`-type rules have several IPs for one host, all IPs are now
   returned instead of only the first one ([#1381]).
 - Property `rlimit_nofile` is now in the `os` object of the configuration
   file, together with the new `group` and `user` properties ([#2763]).
@@ -803,7 +1258,6 @@ In this release, the schema version has changed from 10 to 12.
 
   To rollback this change, convert the property back into days and change the
   `schema_version` back to `11`.
-
 - Property `rlimit_nofile`, which in schema versions 10 and earlier used to be
   on the top level, is now moved to the new `os` object:
 
@@ -1033,7 +1487,7 @@ See also the [v0.106.0 GitHub milestone][ms-v0.106.0].
 - Hostname uniqueness validation in the DHCP server ([#2952]).
 - Hostname generating for DHCP clients which don't provide their own ([#2723]).
 - New flag `--no-etc-hosts` to disable client domain name lookups in the
-  operating system's /etc/hosts files ([#1947]).
+  operating system's `/etc/hosts` files ([#1947]).
 - The ability to set up custom upstreams to resolve PTR queries for local
   addresses and to disable the automatic resolving of clients' addresses
   ([#2704]).
@@ -1350,11 +1804,22 @@ See also the [v0.104.2 GitHub milestone][ms-v0.104.2].
 
 
 <!--
-[Unreleased]: https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.16...HEAD
-[v0.107.16]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.15...v0.107.15
+[Unreleased]: https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.27...HEAD
+[v0.107.27]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.26...v0.107.27
 -->
 
-[Unreleased]: https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.15...HEAD
+[Unreleased]: https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.26...HEAD
+[v0.107.26]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.25...v0.107.26
+[v0.107.25]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.24...v0.107.25
+[v0.107.24]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.23...v0.107.24
+[v0.107.23]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.22...v0.107.23
+[v0.107.22]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.21...v0.107.22
+[v0.107.21]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.20...v0.107.21
+[v0.107.20]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.19...v0.107.20
+[v0.107.19]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.18...v0.107.19
+[v0.107.18]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.17...v0.107.18
+[v0.107.17]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.16...v0.107.17
+[v0.107.16]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.15...v0.107.16
 [v0.107.15]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.14...v0.107.15
 [v0.107.14]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.13...v0.107.14
 [v0.107.13]:  https://github.com/AdguardTeam/AdGuardHome/compare/v0.107.12...v0.107.13

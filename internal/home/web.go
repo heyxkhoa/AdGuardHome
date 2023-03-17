@@ -11,7 +11,6 @@ import (
 
 	"github.com/AdguardTeam/AdGuardHome/internal/aghhttp"
 	"github.com/AdguardTeam/AdGuardHome/internal/aghnet"
-	"github.com/AdguardTeam/AdGuardHome/internal/aghtls"
 	"github.com/AdguardTeam/golibs/errors"
 	"github.com/AdguardTeam/golibs/log"
 	"github.com/AdguardTeam/golibs/netutil"
@@ -249,7 +248,7 @@ func (web *Web) tlsServerLoop() {
 			TLSConfig: &tls.Config{
 				Certificates: []tls.Certificate{web.httpsServer.cert},
 				RootCAs:      Context.tlsRoots,
-				CipherSuites: aghtls.SaferCipherSuites(),
+				CipherSuites: Context.tlsCipherIDs,
 				MinVersion:   tls.VersionTLS12,
 			},
 			Handler:           withMiddlewares(Context.mux, limitRequestBody),
@@ -261,7 +260,7 @@ func (web *Web) tlsServerLoop() {
 		printHTTPAddresses(aghhttp.SchemeHTTPS)
 
 		if web.conf.serveHTTP3 {
-			go web.mustStartHTTP3(addr, cipher)
+			go web.mustStartHTTP3(addr)
 		}
 
 		log.Debug("web: starting https server")
@@ -273,7 +272,7 @@ func (web *Web) tlsServerLoop() {
 	}
 }
 
-func (web *Web) mustStartHTTP3(address string, ciphers []uint16) {
+func (web *Web) mustStartHTTP3(address string) {
 	defer log.OnPanic("web: http3")
 
 	web.httpsServer.server3 = &http3.Server{
@@ -283,7 +282,7 @@ func (web *Web) mustStartHTTP3(address string, ciphers []uint16) {
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{web.httpsServer.cert},
 			RootCAs:      Context.tlsRoots,
-			CipherSuites: ciphers,
+			CipherSuites: Context.tlsCipherIDs,
 			MinVersion:   tls.VersionTLS12,
 		},
 		Handler: withMiddlewares(Context.mux, limitRequestBody),
